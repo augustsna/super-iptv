@@ -6,8 +6,26 @@ import PlaylistSelector from './components/PlaylistSelector';
 import Settings from './components/Settings';
 import { formatXtreamLiveStream, formatXtreamMovie, formatXtreamSeries } from './utils/parsers';
 
+const SESSION_KEY = 'superstream_session';
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+function loadSavedSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const { playlistInfo, loginTimestamp } = JSON.parse(raw);
+    if (Date.now() - loginTimestamp > SESSION_TTL_MS) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return playlistInfo;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
-  const [playlistInfo, setPlaylistInfo] = useState(null);
+  const [playlistInfo, setPlaylistInfo] = useState(() => loadSavedSession());
   const [activeTab, setActiveTab] = useState('live'); // live, movies, series, favorites, settings
   const [channels, setChannels] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -116,9 +134,27 @@ export default function App() {
     }
   };
 
+  // Restore session on first mount (re-fetch streams if session was saved)
+  useEffect(() => {
+    const saved = loadSavedSession();
+    if (!saved) return;
+    setUseProxy(saved.useProxy ?? true);
+    setProxyUrl(saved.proxyUrl ?? 'https://api.allorigins.win/raw?url=');
+    if (saved.type === 'xtream') {
+      fetchXtreamLive(saved.credentials, saved.useProxy, saved.proxyUrl);
+    } else if (saved.type === 'm3u') {
+      setChannels(saved.channels || []);
+      const cats = saved.categories || [];
+      setCategories(cats);
+      setSelectedCategory(cats[0] || 'All');
+    }
+  }, []);
+
   // Sync proxy settings back and forth
   const handlePlaylistLoaded = (info) => {
     setPlaylistInfo(info);
+    // Persist session
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ playlistInfo: info, loginTimestamp: Date.now() }));
     setUseProxy(info.useProxy ?? true);
     setProxyUrl(info.proxyUrl ?? 'https://api.allorigins.win/raw?url=');
     setErrorMsg('');
@@ -320,6 +356,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem(SESSION_KEY);
     setPlaylistInfo(null);
     setChannels([]);
     setMovies([]);
