@@ -38,12 +38,57 @@ export default function App() {
   const [useProxy, setUseProxy] = useState(true);
   const [proxyUrl, setProxyUrl] = useState('https://api.allorigins.win/raw?url=');
 
-  const [displayLimit, setDisplayLimit] = useState(50);
+  const [loadStep, setLoadStep] = useState(() => {
+    const saved = localStorage.getItem('streampulse_load_step');
+    return saved ? parseInt(saved, 10) : 50;
+  });
+  const [isCustomLoad, setIsCustomLoad] = useState(() => {
+    const saved = localStorage.getItem('streampulse_is_custom_load');
+    return saved === 'true';
+  });
+  const [customLoadValue, setCustomLoadValue] = useState(() => {
+    const saved = localStorage.getItem('streampulse_custom_load_value');
+    return saved ? parseInt(saved, 10) : 150;
+  });
+  const [displayLimit, setDisplayLimit] = useState(loadStep);
+
+  const handleLoadStepChange = (val) => {
+    if (val === 'all') {
+      setIsCustomLoad(false);
+      setLoadStep(1000000);
+      localStorage.setItem('streampulse_is_custom_load', 'false');
+      localStorage.setItem('streampulse_load_step', '1000000');
+    } else if (val === 'custom') {
+      setIsCustomLoad(true);
+      setLoadStep(customLoadValue);
+      localStorage.setItem('streampulse_is_custom_load', 'true');
+      localStorage.setItem('streampulse_load_step', String(customLoadValue));
+    } else {
+      setIsCustomLoad(false);
+      const num = parseInt(val, 10);
+      setLoadStep(num);
+      localStorage.setItem('streampulse_is_custom_load', 'false');
+      localStorage.setItem('streampulse_load_step', String(num));
+    }
+  };
+  const handleCustomValueChange = (val) => {
+    const num = Math.max(1, parseInt(val, 10) || 1);
+    setCustomLoadValue(num);
+    setLoadStep(num);
+    localStorage.setItem('streampulse_custom_load_value', String(num));
+    localStorage.setItem('streampulse_load_step', String(num));
+  };
+
+  const selectValue = isCustomLoad 
+    ? 'custom' 
+    : (loadStep === 1000000 
+      ? 'all' 
+      : ([50, 100, 200, 500, 1000].includes(loadStep) ? String(loadStep) : 'custom'));
 
   // Reset display limit when filtering changes
   useEffect(() => {
-    setDisplayLimit(50);
-  }, [activeTab, selectedCategory, selectedMovieCategory, selectedSeriesCategory, searchQuery]);
+    setDisplayLimit(loadStep);
+  }, [activeTab, selectedCategory, selectedMovieCategory, selectedSeriesCategory, searchQuery, loadStep]);
 
   // Sync favorites from LocalStorage
   useEffect(() => {
@@ -81,8 +126,8 @@ export default function App() {
     if (info.type === 'm3u') {
       setChannels(info.channels);
       const hasWorldCup = info.categories.includes('World Cup 2026');
-      setCategories(hasWorldCup ? ['World Cup 2026', 'All Channels'] : ['All Channels']);
-      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'All Channels');
+      setCategories(hasWorldCup ? ['World Cup 2026', 'Sports', 'All Channels'] : ['Sports', 'All Channels']);
+      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'Sports');
       setActiveTab('live');
     } else if (info.type === 'xtream') {
       // Fetch Live categories and streams
@@ -112,7 +157,7 @@ export default function App() {
 
       // Formulate categories
       const hasWorldCup = Array.isArray(catsJson) && catsJson.some(c => c.category_name === 'World Cup 2026');
-      setCategories(hasWorldCup ? ['World Cup 2026', 'All Channels'] : ['All Channels']);
+      setCategories(hasWorldCup ? ['World Cup 2026', 'Sports', 'All Channels'] : ['Sports', 'All Channels']);
 
       // Parse and format streams
       const catMap = {};
@@ -130,7 +175,7 @@ export default function App() {
         : [];
 
       setChannels(formattedChannels);
-      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'All Channels');
+      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'Sports');
       setActiveTab('live');
     } catch (err) {
       console.error(err);
@@ -288,7 +333,12 @@ export default function App() {
     let list = [];
     if (activeTab === 'live') {
       list = channels;
-      if (selectedCategory !== 'All' && selectedCategory !== 'All Channels') {
+      if (selectedCategory === 'Sports') {
+        list = list.filter(ch => {
+          const cat = (ch.category || '').toLowerCase();
+          return cat.includes('sport') || cat.includes('esporte') || cat.includes('desporto');
+        });
+      } else if (selectedCategory !== 'All' && selectedCategory !== 'All Channels') {
         list = list.filter(ch => ch.category === selectedCategory);
       }
     } else if (activeTab === 'favorites') {
@@ -476,13 +526,59 @@ export default function App() {
                       );
                     })}
                     {getFilteredChannels().length > displayLimit && (
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setDisplayLimit(prev => prev + 50)}
-                        style={{ margin: '16px auto', display: 'block', width: '200px' }}
-                      >
-                        Load More ({getFilteredChannels().length - displayLimit} remaining)
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                          style={{ display: 'block', width: '200px' }}
+                        >
+                          Load More ({getFilteredChannels().length - displayLimit} remaining)
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                          <span>Load amount:</span>
+                          <select 
+                            value={selectValue} 
+                            onChange={e => handleLoadStepChange(e.target.value)} 
+                            style={{ 
+                              background: 'rgba(255,255,255,0.03)', 
+                              border: '1px solid var(--border-color)', 
+                              color: 'var(--text-muted)', 
+                              borderRadius: '4px', 
+                              padding: '4px 8px', 
+                              cursor: 'pointer',
+                              outline: 'none',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                            <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                            <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                            <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                            <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                            <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                            <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                          </select>
+                          {selectValue === 'custom' && (
+                            <input
+                              type="number"
+                              min="1"
+                              value={customLoadValue}
+                              onChange={e => handleCustomValueChange(e.target.value)}
+                              style={{ 
+                                background: 'rgba(255,255,255,0.03)', 
+                                border: '1px solid var(--border-color)', 
+                                color: '#fff', 
+                                borderRadius: '4px', 
+                                padding: '4px 8px', 
+                                outline: 'none',
+                                fontSize: '11px',
+                                width: '70px'
+                              }}
+                              placeholder="Amount"
+                            />
+                          )}
+                        </div>
+                      </div>
                     )}
                     {getFilteredChannels().length === 0 && (
                       <div className="list-empty-state">No matching streams found</div>
@@ -518,13 +614,59 @@ export default function App() {
                       );
                     })}
                     {getFilteredMovies().length > displayLimit && (
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setDisplayLimit(prev => prev + 50)}
-                        style={{ margin: '16px auto', display: 'block', width: '200px', gridColumn: '1 / -1' }}
-                      >
-                        Load More ({getFilteredMovies().length - displayLimit} remaining)
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                          style={{ display: 'block', width: '200px' }}
+                        >
+                          Load More ({getFilteredMovies().length - displayLimit} remaining)
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                          <span>Load amount:</span>
+                          <select 
+                            value={selectValue} 
+                            onChange={e => handleLoadStepChange(e.target.value)} 
+                            style={{ 
+                              background: 'rgba(255,255,255,0.03)', 
+                              border: '1px solid var(--border-color)', 
+                              color: 'var(--text-muted)', 
+                              borderRadius: '4px', 
+                              padding: '4px 8px', 
+                              cursor: 'pointer',
+                              outline: 'none',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                            <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                            <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                            <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                            <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                            <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                            <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                          </select>
+                          {selectValue === 'custom' && (
+                            <input
+                              type="number"
+                              min="1"
+                              value={customLoadValue}
+                              onChange={e => handleCustomValueChange(e.target.value)}
+                              style={{ 
+                                background: 'rgba(255,255,255,0.03)', 
+                                border: '1px solid var(--border-color)', 
+                                color: '#fff', 
+                                borderRadius: '4px', 
+                                padding: '4px 8px', 
+                                outline: 'none',
+                                fontSize: '11px',
+                                width: '70px'
+                              }}
+                              placeholder="Amount"
+                            />
+                          )}
+                        </div>
+                      </div>
                     )}
                     {getFilteredMovies().length === 0 && (
                       <div className="list-empty-state">No movies found</div>
@@ -602,13 +744,59 @@ export default function App() {
                         </div>
                       ))}
                       {getFilteredSeries().length > displayLimit && (
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => setDisplayLimit(prev => prev + 50)}
-                          style={{ margin: '16px auto', display: 'block', width: '200px', gridColumn: '1 / -1' }}
-                        >
-                          Load More ({getFilteredSeries().length - displayLimit} remaining)
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                            style={{ display: 'block', width: '200px' }}
+                          >
+                            Load More ({getFilteredSeries().length - displayLimit} remaining)
+                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                            <span>Load amount:</span>
+                            <select 
+                              value={selectValue} 
+                              onChange={e => handleLoadStepChange(e.target.value)} 
+                              style={{ 
+                                background: 'rgba(255,255,255,0.03)', 
+                                border: '1px solid var(--border-color)', 
+                                color: 'var(--text-muted)', 
+                                borderRadius: '4px', 
+                                padding: '4px 8px', 
+                                cursor: 'pointer',
+                                outline: 'none',
+                                fontSize: '11px'
+                              }}
+                            >
+                              <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                              <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                              <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                              <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                              <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                              <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                              <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                            </select>
+                            {selectValue === 'custom' && (
+                              <input
+                                type="number"
+                                min="1"
+                                value={customLoadValue}
+                                onChange={e => handleCustomValueChange(e.target.value)}
+                                style={{ 
+                                  background: 'rgba(255,255,255,0.03)', 
+                                  border: '1px solid var(--border-color)', 
+                                  color: '#fff', 
+                                  borderRadius: '4px', 
+                                  padding: '4px 8px', 
+                                  outline: 'none',
+                                  fontSize: '11px',
+                                  width: '70px'
+                                }}
+                                placeholder="Amount"
+                              />
+                            )}
+                          </div>
+                        </div>
                       )}
                       {getFilteredSeries().length === 0 && (
                         <div className="list-empty-state">No series found</div>
