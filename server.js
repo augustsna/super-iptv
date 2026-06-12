@@ -2,10 +2,8 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
-import { spawn } from 'child_process';
 
 const PORT = process.env.PORT || 5000;
-const FFMPEG_BIN = 'C:\\SuperFolder\\ffmpeg\\bin';
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_PATH = path.join(__dirname, 'config.json');
@@ -146,114 +144,6 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: 'Invalid JSON request payload' }));
       }
     });
-    return;
-  }
-
-  // GET /api/probe?url=<encoded> — detect audio codec via ffprobe
-  if (pathname === '/api/probe' && req.method === 'GET') {
-    const streamUrl = parsedUrl.query.url;
-    if (!streamUrl) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Missing url parameter' }));
-      return;
-    }
-
-    const ffprobe = spawn(path.join(FFMPEG_BIN, 'ffprobe.exe'), [
-      '-v', 'quiet',
-      '-print_format', 'json',
-      '-show_streams',
-      '-select_streams', 'a:0',
-      '-i', streamUrl
-    ]);
-
-    let probeOutput = '';
-    ffprobe.stdout.on('data', (chunk) => { probeOutput += chunk.toString(); });
-    ffprobe.stderr.on('data', () => {}); // suppress stderr
-
-    ffprobe.on('close', () => {
-      try {
-        const info = JSON.parse(probeOutput);
-        const audioStream = info.streams && info.streams[0];
-        const codec = audioStream ? audioStream.codec_name : 'unknown';
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ codec }));
-      } catch {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ codec: 'unknown' }));
-      }
-    });
-
-    ffprobe.on('error', (err) => {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    });
-
-    return;
-  }
-
-  // GET /api/transcode?url=<encoded> — stream with AC3/EAC3 → AAC transcoding via FFmpeg
-  if (pathname === '/api/transcode' && req.method === 'GET') {
-    const streamUrl = parsedUrl.query.url;
-    if (!streamUrl) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Missing url parameter' }));
-      return;
-    }
-
-    console.log(`[transcode] Starting FFmpeg transcode for: ${streamUrl}`);
-
-    // Set streaming headers before spawning FFmpeg
-    res.writeHead(200, {
-      'Content-Type': 'video/mp2t',
-      'Transfer-Encoding': 'chunked',
-      'Cache-Control': 'no-cache, no-store',
-      'X-Accel-Buffering': 'no',
-    });
-
-    const ffmpeg = spawn(path.join(FFMPEG_BIN, 'ffmpeg.exe'), [
-      '-hide_banner',
-      '-loglevel', 'warning',
-      // Input — tell ffmpeg to keep retrying network streams
-      '-reconnect', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_delay_max', '5',
-      '-i', streamUrl,
-      // Video: copy as-is (no re-encode)
-      '-c:v', 'copy',
-      // Audio: transcode AC3/EAC3 → AAC stereo
-      '-c:a', 'aac',
-      '-b:a', '192k',
-      '-ac', '2',
-      // Output as MPEG-TS to stdout
-      '-f', 'mpegts',
-      '-muxdelay', '0',
-      'pipe:1'
-    ]);
-
-    // Pipe FFmpeg stdout → HTTP response
-    ffmpeg.stdout.pipe(res);
-
-    // Log FFmpeg stderr warnings
-    ffmpeg.stderr.on('data', (data) => {
-      console.warn('[ffmpeg]', data.toString().trim());
-    });
-
-    // Clean up when client disconnects
-    req.on('close', () => {
-      console.log('[transcode] Client disconnected — killing FFmpeg');
-      ffmpeg.kill('SIGKILL');
-    });
-
-    ffmpeg.on('error', (err) => {
-      console.error('[transcode] FFmpeg spawn error:', err.message);
-      if (!res.writableEnded) res.end();
-    });
-
-    ffmpeg.on('close', (code) => {
-      console.log(`[transcode] FFmpeg exited with code ${code}`);
-      if (!res.writableEnded) res.end();
-    });
-
     return;
   }
 
