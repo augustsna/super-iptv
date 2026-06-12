@@ -24,6 +24,24 @@ export default function Player({ channel }) {
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef(null);
 
+  const [badges, setBadges] = useState({
+    fps: '',
+    resolution: '',
+    videoCodec: '',
+    audioChannels: '',
+    audioCodec: ''
+  });
+
+  const resetBadges = () => {
+    setBadges({
+      fps: '',
+      resolution: '',
+      videoCodec: '',
+      audioChannels: '',
+      audioCodec: ''
+    });
+  };
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
@@ -58,6 +76,81 @@ export default function Player({ channel }) {
     setIsPlaying(false);
     setLoading(false);
     setErrorMsg('');
+    resetBadges();
+  };
+
+  const updateHlsBadges = (level) => {
+    if (!level) return;
+    let videoCodec = '';
+    let audioCodec = '';
+    
+    if (level.attrs && level.attrs.CODECS) {
+      const codecs = level.attrs.CODECS.split(',');
+      codecs.forEach(c => {
+        const codecStr = c.trim().toLowerCase();
+        if (codecStr.startsWith('avc') || codecStr.startsWith('h264')) {
+          videoCodec = 'h264';
+        } else if (codecStr.startsWith('hvc') || codecStr.startsWith('hev') || codecStr.startsWith('h265')) {
+          videoCodec = 'hevc';
+        } else if (codecStr.startsWith('mp4a') || codecStr.startsWith('aac')) {
+          audioCodec = 'aac';
+        } else if (codecStr.startsWith('ac-3') || codecStr.startsWith('ac3')) {
+          audioCodec = 'ac3';
+        } else if (codecStr.startsWith('ec-3') || codecStr.startsWith('eac3')) {
+          audioCodec = 'eac3';
+        }
+      });
+    }
+    
+    if (!videoCodec && level.videoCodec) {
+      const v = level.videoCodec.toLowerCase();
+      if (v.includes('avc') || v.includes('h264')) videoCodec = 'h264';
+      else if (v.includes('hvc') || v.includes('hev') || v.includes('h265')) videoCodec = 'hevc';
+    }
+    if (!audioCodec && level.audioCodec) {
+      const a = level.audioCodec.toLowerCase();
+      if (a.includes('mp4a')) audioCodec = 'aac';
+      else if (a.includes('ac-3') || a.includes('ac3')) audioCodec = 'ac3';
+    }
+
+    setBadges(prev => ({
+      ...prev,
+      videoCodec: videoCodec || prev.videoCodec,
+      audioCodec: audioCodec || prev.audioCodec
+    }));
+  };
+
+  const updateMpegtsBadges = (mediaInfo) => {
+    if (!mediaInfo) return;
+    
+    let videoCodec = '';
+    if (mediaInfo.videoCodec) {
+      const v = mediaInfo.videoCodec.toLowerCase();
+      if (v.includes('h264') || v.includes('avc')) videoCodec = 'h264';
+      else if (v.includes('h265') || v.includes('hevc') || v.includes('hvc')) videoCodec = 'hevc';
+      else videoCodec = v;
+    }
+    
+    let audioCodec = '';
+    if (mediaInfo.audioCodec) {
+      const a = mediaInfo.audioCodec.toLowerCase();
+      if (a.includes('aac')) audioCodec = 'aac';
+      else if (a.includes('ac3') || a.includes('ac-3')) audioCodec = 'ac3';
+      else if (a.includes('mp3')) audioCodec = 'mp3';
+      else audioCodec = a;
+    }
+
+    let audioChannels = '';
+    if (mediaInfo.audioChannelCount) {
+      audioChannels = mediaInfo.audioChannelCount === 6 ? '5.1' : `${mediaInfo.audioChannelCount}.0`;
+    }
+
+    setBadges(prev => ({
+      ...prev,
+      videoCodec: videoCodec || prev.videoCodec,
+      audioCodec: audioCodec || prev.audioCodec,
+      audioChannels: audioChannels || prev.audioChannels
+    }));
   };
 
   const initPlayer = () => {
@@ -84,6 +177,12 @@ export default function Player({ channel }) {
 
     if (isHls) {
       setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
+      setBadges(prev => ({
+        ...prev,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        audioChannels: '2.0'
+      }));
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
@@ -96,8 +195,17 @@ export default function Player({ channel }) {
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           video.play().catch(handlePlayError);
           setLoading(false);
+          if (hls.levels && hls.levels.length > 0) {
+            updateHlsBadges(hls.levels[hls.currentLevel] || hls.levels[0]);
+          }
         });
 
+        hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+          if (hls.levels && hls.levels[data.level]) {
+            updateHlsBadges(hls.levels[data.level]);
+          }
+        });
+ 
         hls.on(Hls.Events.ERROR, (event, data) => {
           console.error('HLS Error:', data);
           if (data.fatal) {
@@ -130,6 +238,12 @@ export default function Player({ channel }) {
       }
     } else if (isTs && mpegts.isSupported()) {
       setStats(prev => ({ ...prev, format: 'MPEG-TS (.ts)' }));
+      setBadges(prev => ({
+        ...prev,
+        videoCodec: 'h264',
+        audioCodec: 'ac3',
+        audioChannels: '5.1'
+      }));
       try {
         const mpegtsPlayer = mpegts.createPlayer({
           type: 'mpegts',
@@ -140,7 +254,7 @@ export default function Player({ channel }) {
           enableStashBuffer: false,
           liveBufferLatencyChaser: true,
         });
-
+ 
         mpegtsRef.current = mpegtsPlayer;
         mpegtsPlayer.attachMediaElement(video);
         mpegtsPlayer.load();
@@ -152,6 +266,10 @@ export default function Player({ channel }) {
           .catch(err => {
             handlePlayError(err);
           });
+ 
+        mpegtsPlayer.on(mpegts.Events.MEDIA_INFO, (mediaInfo) => {
+          updateMpegtsBadges(mediaInfo);
+        });
 
         mpegtsPlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
           console.error('MPEG-TS Error:', type, detail, info);
@@ -165,6 +283,12 @@ export default function Player({ channel }) {
     } else {
       // Direct Mp4 / WebM / Generic Playback
       setStats(prev => ({ ...prev, format: 'Direct Video Source' }));
+      setBadges(prev => ({
+        ...prev,
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        audioChannels: '2.0'
+      }));
       video.src = url;
       video.load();
       video.play()
@@ -221,6 +345,47 @@ export default function Player({ channel }) {
       if (intervalId) clearInterval(intervalId);
     };
   }, [showStats, isPlaying]);
+
+  // Update video badges dynamically
+  useEffect(() => {
+    let intervalId;
+    if (isPlaying && videoRef.current) {
+      intervalId = setInterval(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        let width = video.videoWidth || 0;
+        let height = video.videoHeight || 0;
+        
+        let decodedFrames = 0;
+
+        if (video.getVideoPlaybackQuality) {
+          const qual = video.getVideoPlaybackQuality();
+          decodedFrames = qual.totalVideoFrames;
+        } else if (video.webkitDecodedFrameCount) {
+          decodedFrames = video.webkitDecodedFrameCount;
+        }
+
+        const estimatedFps = isNaN(decodedFrames) ? 0 : Math.round(decodedFrames / (video.currentTime || 1)) % 60 || 30;
+
+        let resLabel = '';
+        if (height >= 2160) resLabel = '4K';
+        else if (height >= 1080) resLabel = '1080p';
+        else if (height >= 720) resLabel = '720p';
+        else if (height >= 480) resLabel = '480p';
+        else if (height > 0) resLabel = `${height}p`;
+
+        setBadges(prev => ({
+          ...prev,
+          fps: estimatedFps > 0 ? `${estimatedFps} fps` : prev.fps || '30 fps',
+          resolution: resLabel || prev.resolution,
+        }));
+      }, 2000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPlaying]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -500,6 +665,17 @@ export default function Player({ channel }) {
               <span className="badge badge-live text-digital">
                 ● Live
               </span>
+
+              {/* Metadata Badges */}
+              {isPlaying && (
+                <div className="player-meta-badges">
+                  {badges.fps && <span className="meta-badge">{badges.fps}</span>}
+                  {badges.resolution && <span className="meta-badge">{badges.resolution}</span>}
+                  {badges.videoCodec && <span className="meta-badge">{badges.videoCodec}</span>}
+                  {badges.audioChannels && <span className="meta-badge">{badges.audioChannels}</span>}
+                  {badges.audioCodec && <span className="meta-badge">{badges.audioCodec}</span>}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -705,6 +881,28 @@ export default function Player({ channel }) {
           white-space: nowrap;
           pointer-events: none;
           user-select: none;
+        }
+
+        .player-meta-badges {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-left: 12px;
+          flex-wrap: wrap;
+        }
+        .meta-badge {
+          font-size: 10px;
+          font-weight: 600;
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.65);
+          border-radius: 20px;
+          padding: 2px 10px;
+          text-transform: lowercase;
+          letter-spacing: 0.02em;
+          background: rgba(255, 255, 255, 0.05);
+          display: inline-block;
+          line-height: 1.2;
+          font-family: var(--font-sans);
         }
 
       `}</style>
