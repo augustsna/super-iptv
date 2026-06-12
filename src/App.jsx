@@ -14,7 +14,7 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [epgData, setEpgData] = useState({});
@@ -23,13 +23,13 @@ export default function App() {
   const [movies, setMovies] = useState([]);
   const [movieCategories, setMovieCategories] = useState([]);
   const [selectedMovieCategory, setSelectedMovieCategory] = useState('All');
-  
+
   const [series, setSeries] = useState([]);
   const [seriesCategories, setSeriesCategories] = useState([]);
   const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All');
   const [selectedSeriesItem, setSelectedSeriesItem] = useState(null); // Active series for detailed episodes
   const [seriesEpisodes, setSeriesEpisodes] = useState([]); // Season-grouped episodes for active series
-  
+
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -37,6 +37,13 @@ export default function App() {
   // Proxy state (synced with PlaylistSelector)
   const [useProxy, setUseProxy] = useState(true);
   const [proxyUrl, setProxyUrl] = useState('https://api.allorigins.win/raw?url=');
+
+  const [displayLimit, setDisplayLimit] = useState(50);
+
+  // Reset display limit when filtering changes
+  useEffect(() => {
+    setDisplayLimit(50);
+  }, [activeTab, selectedCategory, selectedMovieCategory, selectedSeriesCategory, searchQuery]);
 
   // Sync favorites from LocalStorage
   useEffect(() => {
@@ -73,8 +80,9 @@ export default function App() {
 
     if (info.type === 'm3u') {
       setChannels(info.channels);
-      setCategories(['All', ...info.categories]);
-      setSelectedCategory('All');
+      const hasWorldCup = info.categories.includes('World Cup 2026');
+      setCategories(hasWorldCup ? ['World Cup 2026', 'All Channels'] : ['All Channels']);
+      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'All Channels');
       setActiveTab('live');
     } else if (info.type === 'xtream') {
       // Fetch Live categories and streams
@@ -87,7 +95,7 @@ export default function App() {
     setErrorMsg('');
     try {
       const { host, username, password } = creds;
-      
+
       // Fetch Live categories
       const catUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_categories`;
       const catFetchUrl = proxy ? `${pUrl}${encodeURIComponent(catUrl)}` : catUrl;
@@ -103,11 +111,8 @@ export default function App() {
       const streamsJson = await streamsResponse.json();
 
       // Formulate categories
-      const cats = [{ category_id: 'All', category_name: 'All Channels' }];
-      if (Array.isArray(catsJson)) {
-        cats.push(...catsJson);
-      }
-      setCategories(cats.map(c => c.category_name));
+      const hasWorldCup = Array.isArray(catsJson) && catsJson.some(c => c.category_name === 'World Cup 2026');
+      setCategories(hasWorldCup ? ['World Cup 2026', 'All Channels'] : ['All Channels']);
 
       // Parse and format streams
       const catMap = {};
@@ -117,15 +122,15 @@ export default function App() {
         });
       }
 
-      const formattedChannels = Array.isArray(streamsJson) 
+      const formattedChannels = Array.isArray(streamsJson)
         ? streamsJson.map(s => {
-            s.category_name = catMap[s.category_id] || 'Uncategorized';
-            return formatXtreamLiveStream(s, host, username, password);
-          })
+          s.category_name = catMap[s.category_id] || 'Uncategorized';
+          return formatXtreamLiveStream(s, host, username, password);
+        })
         : [];
 
       setChannels(formattedChannels);
-      setSelectedCategory('All Channels');
+      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'All Channels');
       setActiveTab('live');
     } catch (err) {
       console.error(err);
@@ -171,12 +176,12 @@ export default function App() {
 
       const formattedMovies = Array.isArray(streamsJson)
         ? streamsJson.map(m => {
-            m.category_name = catMap[m.category_id] || 'Movies';
-            return formatXtreamMovie(m, host, username, password);
-          })
+          m.category_name = catMap[m.category_id] || 'Movies';
+          return formatXtreamMovie(m, host, username, password);
+        })
         : [];
 
-      setMovieCategories(['All Movies', ...(Array.isArray(catsJson) ? catsJson.map(c => c.category_name) : [])]);
+      setMovieCategories(['All Movies']);
       setMovies(formattedMovies);
       setSelectedMovieCategory('All Movies');
     } catch (err) {
@@ -214,12 +219,12 @@ export default function App() {
 
       const formattedSeries = Array.isArray(streamsJson)
         ? streamsJson.map(s => {
-            s.category_name = catMap[s.category_id] || 'TV Series';
-            return formatXtreamSeries(s);
-          })
+          s.category_name = catMap[s.category_id] || 'TV Series';
+          return formatXtreamSeries(s);
+        })
         : [];
 
-      setSeriesCategories(['All Series', ...(Array.isArray(catsJson) ? catsJson.map(c => c.category_name) : [])]);
+      setSeriesCategories(['All Series']);
       setSeries(formattedSeries);
       setSelectedSeriesCategory('All Series');
     } catch (err) {
@@ -238,10 +243,10 @@ export default function App() {
       const { host, username, password } = playlistInfo.credentials;
       const url = `${host}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${seriesItem.seriesId}`;
       const fetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(url)}` : url;
-      
+
       const response = await fetch(fetchUrl);
       const json = await response.json();
-      
+
       // Episodes are structured as an object of seasons: { "1": [ { id, title, container_extension }, ... ] }
       if (json && json.episodes) {
         setSeriesEpisodes(json.episodes);
@@ -290,7 +295,7 @@ export default function App() {
       // Merge live channels, movies and series
       list = [...channels, ...movies].filter(ch => favorites.includes(ch.uniqueId));
     }
-    
+
     if (searchQuery) {
       list = list.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
@@ -326,14 +331,14 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Sidebar */}
-      <Sidebar 
-        activeTab={activeTab} 
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
           setSearchQuery('');
           setSelectedSeriesItem(null);
-        }} 
-        playlistInfo={playlistInfo} 
+        }}
+        playlistInfo={playlistInfo}
         onLogout={handleLogout}
         favoritesCount={favorites.length}
       />
@@ -341,29 +346,24 @@ export default function App() {
       {/* Main dashboard content */}
       <main className="main-content">
         {activeTab === 'settings' ? (
-          <Settings 
-            playlistInfo={playlistInfo}
+          <Settings
             onClearPlaylist={handleLogout}
             onClearFavorites={() => saveFavorites([])}
-            useProxy={useProxy}
-            setUseProxy={setUseProxy}
-            proxyUrl={proxyUrl}
-            setProxyUrl={setProxyUrl}
           />
         ) : (
           <div className="dashboard-grid">
-            
+
             {/* Left side: player and EPG */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'hidden' }}>
               <div style={{ flex: 1, minHeight: '320px', maxHeight: '550px' }}>
                 <Player channel={selectedChannel} />
               </div>
               <div style={{ flex: '0 0 280px' }}>
-                <EPGGuide 
-                  channel={selectedChannel} 
-                  epgData={epgData} 
-                  onEpgLoaded={(data) => setEpgData(data)} 
-                  useProxy={useProxy} 
+                <EPGGuide
+                  channel={selectedChannel}
+                  epgData={epgData}
+                  onEpgLoaded={(data) => setEpgData(data)}
+                  useProxy={useProxy}
                   proxyUrl={proxyUrl}
                 />
               </div>
@@ -375,10 +375,10 @@ export default function App() {
               <div className="list-search-bar">
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Search size={16} className="search-icon" />
-                  <input 
-                    type="text" 
-                    placeholder={`Search ${activeTab}...`} 
-                    className="input-field" 
+                  <input
+                    type="text"
+                    placeholder={`Search ${activeTab}...`}
+                    className="input-field"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     style={{ paddingLeft: '36px', height: '40px' }}
@@ -390,7 +390,7 @@ export default function App() {
               {activeTab === 'live' && (
                 <div className="category-scroller">
                   {categories.map((cat, idx) => (
-                    <button 
+                    <button
                       key={idx}
                       className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
                       onClick={() => setSelectedCategory(cat)}
@@ -404,7 +404,7 @@ export default function App() {
               {activeTab === 'movies' && (
                 <div className="category-scroller">
                   {movieCategories.map((cat, idx) => (
-                    <button 
+                    <button
                       key={idx}
                       className={`category-chip ${selectedMovieCategory === cat ? 'active' : ''}`}
                       onClick={() => setSelectedMovieCategory(cat)}
@@ -418,7 +418,7 @@ export default function App() {
               {activeTab === 'series' && !selectedSeriesItem && (
                 <div className="category-scroller">
                   {seriesCategories.map((cat, idx) => (
-                    <button 
+                    <button
                       key={idx}
                       className={`category-chip ${selectedSeriesCategory === cat ? 'active' : ''}`}
                       onClick={() => setSelectedSeriesCategory(cat)}
@@ -444,12 +444,12 @@ export default function App() {
                 ) : activeTab === 'live' || activeTab === 'favorites' ? (
                   /* Live TV or Favorites List */
                   <div className="channels-list">
-                    {getFilteredChannels().map((ch) => {
+                    {getFilteredChannels().slice(0, displayLimit).map((ch) => {
                       const isActive = selectedChannel?.uniqueId === ch.uniqueId;
                       const isFav = favorites.includes(ch.uniqueId);
                       return (
-                        <div 
-                          key={ch.uniqueId} 
+                        <div
+                          key={ch.uniqueId}
                           className={`channel-item-card ${isActive ? 'active' : ''}`}
                           onClick={() => setSelectedChannel(ch)}
                         >
@@ -460,7 +460,7 @@ export default function App() {
                               <Tv size={18} style={{ color: 'var(--text-dark)' }} />
                             )}
                           </div>
-                          
+
                           <div className="channel-details">
                             <div className="channel-name-txt">{ch.name}</div>
                             <div className="channel-category-txt">{ch.category}</div>
@@ -475,6 +475,15 @@ export default function App() {
                         </div>
                       );
                     })}
+                    {getFilteredChannels().length > displayLimit && (
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setDisplayLimit(prev => prev + 50)}
+                        style={{ margin: '16px auto', display: 'block', width: '200px' }}
+                      >
+                        Load More ({getFilteredChannels().length - displayLimit} remaining)
+                      </button>
+                    )}
                     {getFilteredChannels().length === 0 && (
                       <div className="list-empty-state">No matching streams found</div>
                     )}
@@ -482,7 +491,7 @@ export default function App() {
                 ) : activeTab === 'movies' ? (
                   /* VOD Movie Grid */
                   <div className="vod-grid">
-                    {getFilteredMovies().map((mv) => {
+                    {getFilteredMovies().slice(0, displayLimit).map((mv) => {
                       const isActive = selectedChannel?.uniqueId === mv.uniqueId;
                       const isFav = favorites.includes(mv.uniqueId);
                       return (
@@ -508,6 +517,15 @@ export default function App() {
                         </div>
                       );
                     })}
+                    {getFilteredMovies().length > displayLimit && (
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setDisplayLimit(prev => prev + 50)}
+                        style={{ margin: '16px auto', display: 'block', width: '200px', gridColumn: '1 / -1' }}
+                      >
+                        Load More ({getFilteredMovies().length - displayLimit} remaining)
+                      </button>
+                    )}
                     {getFilteredMovies().length === 0 && (
                       <div className="list-empty-state">No movies found</div>
                     )}
@@ -543,8 +561,8 @@ export default function App() {
                               </h4>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {seriesEpisodes[seasonNum].map((ep) => (
-                                  <div 
-                                    key={ep.id} 
+                                  <div
+                                    key={ep.id}
                                     className="episode-item"
                                     onClick={() => playEpisode(ep, selectedSeriesItem.name)}
                                   >
@@ -564,7 +582,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="vod-grid">
-                      {getFilteredSeries().map((sr) => (
+                      {getFilteredSeries().slice(0, displayLimit).map((sr) => (
                         <div key={sr.uniqueId} className="vod-card" onClick={() => handleSelectSeries(sr)}>
                           <div className="vod-thumbnail">
                             {sr.logo ? (
@@ -583,6 +601,15 @@ export default function App() {
                           </div>
                         </div>
                       ))}
+                      {getFilteredSeries().length > displayLimit && (
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setDisplayLimit(prev => prev + 50)}
+                          style={{ margin: '16px auto', display: 'block', width: '200px', gridColumn: '1 / -1' }}
+                        >
+                          Load More ({getFilteredSeries().length - displayLimit} remaining)
+                        </button>
+                      )}
                       {getFilteredSeries().length === 0 && (
                         <div className="list-empty-state">No series found</div>
                       )}

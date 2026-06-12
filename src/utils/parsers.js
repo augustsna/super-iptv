@@ -47,21 +47,24 @@ export function parseM3U(rawText) {
       if (!currentChannel.name && currentChannel.tvgName) {
         currentChannel.name = currentChannel.tvgName;
       }
-      
-      categoriesMap.add(currentChannel.category);
     } else if (line.startsWith('#')) {
       // Skip other tags (like #EXTGRP, #EXTMYT, etc) unless they provide group information
       if (line.startsWith('#EXTGRP:') && currentChannel) {
         currentChannel.category = line.replace('#EXTGRP:', '').trim();
-        categoriesMap.add(currentChannel.category);
       }
     } else {
       // Must be the URL
       if (currentChannel) {
         currentChannel.url = line;
-        // Generate a unique client-side ID if one doesn't exist
-        currentChannel.uniqueId = currentChannel.id || `ch-${Math.random().toString(36).substr(2, 9)}`;
-        channels.push(currentChannel);
+        
+        // Filter: only fetch TV (exclude movies and series VODs)
+        const isVod = line.includes('/movie/') || line.includes('/series/');
+        if (!isVod) {
+          // Generate a unique client-side ID if one doesn't exist
+          currentChannel.uniqueId = currentChannel.id || `ch-${Math.random().toString(36).substr(2, 9)}`;
+          channels.push(currentChannel);
+          categoriesMap.add(currentChannel.category);
+        }
         currentChannel = null;
       }
     }
