@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Wand2 } from 'lucide-react';
 
 export default function Player({ channel }) {
   const videoRef = useRef(null);
@@ -32,6 +32,10 @@ export default function Player({ channel }) {
     audioChannels: '',
     audioCodec: ''
   });
+
+  // Transcode toggle: route stream through server-side FFmpeg AC3→AAC converter
+  const [useTranscode, setUseTranscode] = useState(false);
+  const [transcodeActive, setTranscodeActive] = useState(false);
 
   const resetBadges = () => {
     setBadges({
@@ -176,7 +180,8 @@ export default function Player({ channel }) {
     }));
   };
 
-  const initPlayer = () => {
+  const initPlayer = (transcodeOverride) => {
+    const transcodeEnabled = transcodeOverride !== undefined ? transcodeOverride : useTranscode;
     destroyPlayer();
     setLoading(true);
 
@@ -190,11 +195,24 @@ export default function Player({ channel }) {
       video.muted = isMuted;
       video.volume = volume;
 
-    const url = channel.url;
+    const rawUrl = channel.url;
+
+    // If transcode is enabled, route through FFmpeg proxy (AC3/EAC3 → AAC)
+    const useTranscodeForStream = transcodeEnabled && !rawUrl.includes('.m3u8');
+    const url = useTranscodeForStream
+      ? `/api/transcode?url=${encodeURIComponent(rawUrl)}`
+      : rawUrl;
+
+    if (useTranscodeForStream) {
+      setTranscodeActive(true);
+    } else {
+      setTranscodeActive(false);
+    }
     
     // Check url extension and determine type
-    const isHls = url.includes('.m3u8') || channel.type === 'hls';
-    const isTs = url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
+    // Transcoded URL is always MPEG-TS
+    const isHls = !useTranscodeForStream && (rawUrl.includes('.m3u8') || channel.type === 'hls');
+    const isTs = useTranscodeForStream || rawUrl.includes('.ts') || rawUrl.includes('output=ts') || rawUrl.endsWith('.ts');
 
     console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs})`);
 
@@ -264,8 +282,8 @@ export default function Player({ channel }) {
       setBadges(prev => ({
         ...prev,
         videoCodec: 'h264',
-        audioCodec: 'ac3',
-        audioChannels: '5.1'
+        audioCodec: useTranscodeForStream ? 'aac ✓' : 'ac3',
+        audioChannels: useTranscodeForStream ? '2.0' : '5.1'
       }));
       try {
         const mpegtsPlayer = mpegts.createPlayer({
@@ -697,6 +715,36 @@ export default function Player({ channel }) {
 
                 <button className="control-btn" onClick={initPlayer} title="Reload stream">
                   <RefreshCw size={16} />
+                </button>
+
+                {/* AC3→AAC Transcode toggle */}
+                <button
+                  className={`control-btn ${transcodeActive ? 'active' : ''}`}
+                  title={useTranscode ? 'Transcoding AC3→AAC (click to disable)' : 'Enable server-side AC3/EAC3→AAC transcoding'}
+                  onClick={() => {
+                    const next = !useTranscode;
+                    setUseTranscode(next);
+                    // Pass next value directly to bypass async state update
+                    initPlayer(next);
+                  }}
+                  style={{
+                    position: 'relative',
+                    color: transcodeActive ? 'var(--primary)' : undefined,
+                  }}
+                >
+                  <Wand2 size={15} />
+                  {transcodeActive && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                      border: '1px solid #000',
+                    }} />
+                  )}
                 </button>
 
                 {/* Volume */}
