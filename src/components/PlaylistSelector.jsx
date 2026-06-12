@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader, Tv, AlertCircle, Shield, Lock } from 'lucide-react';
 
 export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
@@ -25,6 +25,29 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
   const [tempUrl, setTempUrl] = useState(getDefaultUrl);
   const [tempUsername, setTempUsername] = useState(getDefaultUsername);
   const [tempPassword, setTempPassword] = useState(getDefaultPassword);
+
+  // Fetch global config on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url && data.username && data.password) {
+            setXtreamUrl(data.url);
+            setUsername(data.username);
+            setPassword(data.password);
+            setTempUrl(data.url);
+            setTempUsername(data.username);
+            setTempPassword(data.password);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load global admin config from server, using local defaults:', err);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // CORS proxy setting for loading urls
   const proxyUrl = 'https://api.allorigins.win/raw?url=';
@@ -106,7 +129,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
     }
   };
 
-  const handleSaveAdminConfig = (e) => {
+  const handleSaveAdminConfig = async (e) => {
     e.preventDefault();
     localStorage.setItem('admin_placeholder_url', tempUrl);
     localStorage.setItem('admin_placeholder_username', tempUsername);
@@ -116,6 +139,30 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
     setXtreamUrl(tempUrl);
     setUsername(tempUsername);
     setPassword(tempPassword);
+
+    try {
+      const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': adminInputPassword
+        },
+        body: JSON.stringify({
+          url: tempUrl,
+          username: tempUsername,
+          password: tempPassword
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Server failed to save admin config:', errorData.error);
+        alert(`Warning: Config saved locally but failed to save on server: ${errorData.error}`);
+      }
+    } catch (err) {
+      console.error('Error saving config to server:', err);
+      alert('Warning: Config saved locally but could not reach the server. It will not be synced to other users.');
+    }
 
     setIsAdminMode(false);
   };
