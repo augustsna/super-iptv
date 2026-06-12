@@ -274,3 +274,13 @@ body {
   color: #e0b0ff;
   border: 1px solid rgba(189, 0, 255, 0.3);
 }
+
+/* Prevent mobile browsers (especially iOS Safari) from auto-zooming on focus by forcing 16px+ font-size */
+@media (max-width: 768px) {
+  input, select, textarea,
+  .input-field,
+  .settings-select,
+  .settings-input {
+    font-size: 16px !important;
+  }
+}
