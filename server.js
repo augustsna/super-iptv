@@ -10,7 +10,7 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 
 // Hardcoded initial defaults
 const DEFAULT_CONFIG = {
-  xtreamUrl: 'http://s1.dnspass.xyz',
+  xtreamUrl: '',
   username: '',
   password: '',
   adminPassword: '8899'

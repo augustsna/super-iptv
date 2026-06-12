@@ -6,9 +6,9 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Xtream Codes state
-  const [xtreamUrl, setXtreamUrl] = useState('http://s1.dnspass.xyz');
-  const [username, setUsername] = useState('yaevqytp');
-  const [password, setPassword] = useState('i1D45f9uCd');
+  const [xtreamUrl, setXtreamUrl] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   // Admin panel state
   const [adminMode, setAdminMode] = useState('none'); // 'none', 'auth', 'config'
