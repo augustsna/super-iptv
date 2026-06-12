@@ -1255,9 +1255,8 @@ export default function App() {
         @media (max-width: 768px) {
           .app-container {
             flex-direction: column;
-            overflow-y: auto;
+            overflow: hidden;
             height: 100vh;
-            padding-bottom: 60px;
           }
           
           .sidebar-container {
@@ -1266,59 +1265,87 @@ export default function App() {
 
           .mobile-header {
             display: flex;
+            flex-shrink: 0;
           }
 
           .mobile-bottom-nav {
             display: flex;
+            flex-shrink: 0;
+            position: relative;
+            bottom: auto;
+            left: auto;
+            right: auto;
           }
 
           .main-content {
-            height: auto;
             flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
           }
 
           .dashboard-grid {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 12px;
-            gap: 12px;
-            overflow: visible;
+            padding: 8px;
+            gap: 8px;
+            overflow: hidden;
+            min-height: 0;
           }
 
-          /* Sticky Top Player on Mobile */
+          /* Player fixed height on mobile */
           .player-column {
             display: flex !important;
             flex-direction: column !important;
             gap: 0 !important;
             height: auto !important;
+            flex-shrink: 0;
             overflow: visible !important;
           }
           
           .player-wrapper-container {
-            position: sticky;
-            top: 56px;
-            z-index: 35;
+            position: static !important;
+            top: auto !important;
+            z-index: auto !important;
             background: #000;
-            margin: -12px -12px 0 -12px;
+            margin: -8px -8px 0 -8px;
             border-radius: 0 !important;
+            width: calc(100% + 16px);
+            aspect-ratio: 16 / 9;
+            height: auto !important;
+            max-height: none !important;
+            min-height: unset !important;
           }
           .player-wrapper-container.placeholder {
             display: block !important;
-            height: 150px;
-            margin-bottom: 12px;
+            aspect-ratio: 16 / 9;
+            height: auto !important;
+            max-height: none !important;
+            min-height: unset !important;
+            margin-bottom: 0;
           }
           .player-wrapper-container .player-wrapper,
           .player-wrapper-container .player-empty-container {
             border-radius: 0 !important;
           }
 
+          /* Channel list panel fills remaining space and scrolls */
           .main-list-panel {
-            height: auto !important;
-            min-height: 400px;
-            overflow: visible !important;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden !important;
+            min-height: 0;
+            border-radius: var(--radius-sm);
           }
           .list-items-container {
-            overflow: visible !important;
+            flex: 1;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;
+            padding-bottom: 12px;
           }
           
           .seasons-container {

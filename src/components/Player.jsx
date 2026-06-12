@@ -18,6 +18,8 @@ export default function Player({ channel }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimerRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -237,18 +239,33 @@ export default function Player({ channel }) {
   };
 
   const toggleFullscreen = () => {
-    const container = videoRef.current?.parentElement;
+    const video = videoRef.current;
+    const container = video?.parentElement;
     if (!container) return;
 
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().then(() => {
-        setIsFullscreen(true);
-      }).catch(err => {
-        console.error('Fullscreen request error:', err);
-      });
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+    // Standard Fullscreen API (works on desktop and Android Chrome)
+    if (document.fullscreenEnabled && container.requestFullscreen) {
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().then(() => {
+          setIsFullscreen(true);
+        }).catch(err => {
+          console.error('Fullscreen request error:', err);
+          // Fallback to video native fullscreen (iOS Safari)
+          if (video && video.webkitEnterFullscreen) {
+            video.webkitEnterFullscreen();
+          }
+        });
+      } else {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } else if (video && video.webkitEnterFullscreen) {
+      // iOS Safari: request native video fullscreen
+      if (!document.webkitFullscreenElement && !video.webkitDisplayingFullscreen) {
+        video.webkitEnterFullscreen();
+      } else if (video.webkitExitFullscreen) {
+        video.webkitExitFullscreen();
+      }
     }
   };
 
@@ -257,8 +274,58 @@ export default function Player({ channel }) {
       setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
+
+  // Sync iOS native video fullscreen state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onWebKitBeginFS = () => setIsFullscreen(true);
+    const onWebKitEndFS = () => setIsFullscreen(false);
+    video.addEventListener('webkitbeginfullscreen', onWebKitBeginFS);
+    video.addEventListener('webkitendfullscreen', onWebKitEndFS);
+    return () => {
+      video.removeEventListener('webkitbeginfullscreen', onWebKitBeginFS);
+      video.removeEventListener('webkitendfullscreen', onWebKitEndFS);
+    };
+  }, []);
+
+  // Auto-hide controls on mobile after 3 seconds of inactivity
+  const resetControlsTimer = () => {
+    setShowControls(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    if (isMobile && isPlaying) {
+      controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile) {
+      setShowControls(true);
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    }
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!isPlaying) {
+      setShowControls(true);
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    } else {
+      controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+    }
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [isPlaying, isMobile]);
 
   const togglePictureInPicture = async () => {
     const video = videoRef.current;
@@ -300,7 +367,16 @@ export default function Player({ channel }) {
       ) : (
         <div className="player-wrapper glass-panel">
           {/* Video Container */}
-          <div className="video-container-box">
+          <div
+            className="video-container-box"
+            onClick={() => {
+              if (isMobile) {
+                resetControlsTimer();
+              } else {
+                togglePlay();
+              }
+            }}
+          >
         <video 
           ref={videoRef}
           className={`video-element ${getAspectClass()}`}
@@ -313,7 +389,14 @@ export default function Player({ channel }) {
             setErrorMsg('');
           }}
           onWaiting={() => setLoading(true)}
-          onClick={togglePlay}
+          onClick={(e) => {
+            if (!isMobile) {
+              togglePlay();
+            } else {
+              e.stopPropagation();
+              resetControlsTimer();
+            }
+          }}
         />
 
         {/* Loading Spinner */}
@@ -345,7 +428,10 @@ export default function Player({ channel }) {
         )}
 
         {/* Custom Overlay Controls */}
-        <div className="player-controls-overlay">
+        <div
+          className="player-controls-overlay"
+          style={isMobile ? { opacity: showControls ? 1 : 0, pointerEvents: showControls ? 'auto' : 'none' } : {}}
+        >
           {/* Top Header info */}
           <div className="overlay-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
