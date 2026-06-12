@@ -173,32 +173,7 @@ export default function Player({ channel }) {
     setErrorMsg('Stream could not be played. This is common due to Mixed Content (HTTP on HTTPS site) or CORS blocking. Check Settings to apply a proxy.');
   };
 
-  // Listen to video element state changes
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
 
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onPlaying = () => {
-      setIsPlaying(true);
-      setLoading(false);
-      setErrorMsg('');
-    };
-    const onWaiting = () => setLoading(true);
-
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('playing', onPlaying);
-    video.addEventListener('waiting', onWaiting);
-
-    return () => {
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('playing', onPlaying);
-      video.removeEventListener('waiting', onWaiting);
-    };
-  }, []);
 
   // Update stats in loop
   useEffect(() => {
@@ -330,6 +305,15 @@ export default function Player({ channel }) {
           ref={videoRef}
           className={`video-element ${getAspectClass()}`}
           playsInline
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onPlaying={() => {
+            setIsPlaying(true);
+            setLoading(false);
+            setErrorMsg('');
+          }}
+          onWaiting={() => setLoading(true)}
+          onClick={togglePlay}
         />
 
         {/* Loading Spinner */}
@@ -464,6 +448,7 @@ export default function Player({ channel }) {
           height: 100%;
           object-fit: contain;
           outline: none;
+          cursor: pointer;
         }
         
         /* Aspect Ratio Styles */
