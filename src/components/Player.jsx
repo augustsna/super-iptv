@@ -12,7 +12,7 @@ export default function Player({ channel }) {
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [aspectRatio, setAspectRatio] = useState('fit'); // fit, fill, stretch, 16-9, 4-3
+  const aspectRatio = 'fit';
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({ format: 'None', resolution: '0x0', fps: 0, bitrate: 0 });
   const [loading, setLoading] = useState(false);
@@ -410,19 +410,7 @@ export default function Player({ channel }) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {/* Aspect Ratio select */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', padding: '2px' }}>
-                {['fit', 'fill', 'stretch'].map((aspect) => (
-                  <button 
-                    key={aspect}
-                    className={`aspect-select-btn ${aspectRatio === aspect ? 'active' : ''}`}
-                    onClick={() => setAspectRatio(aspect)}
-                    style={{ fontSize: '10px', textTransform: 'uppercase', border: 'none', background: 'transparent', padding: '4px 6px', color: aspectRatio === aspect ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontWeight: '600' }}
-                  >
-                    {aspect}
-                  </button>
-                ))}
-              </div>
+
 
               {document.pictureInPictureEnabled && (
                 <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
@@ -615,16 +603,7 @@ export default function Player({ channel }) {
           outline: none;
         }
         
-        .aspect-select-btn {
-          transition: all 0.2s ease;
-          border-radius: 2px;
-        }
-        .aspect-select-btn:hover {
-          background: rgba(255,255,255,0.1) !important;
-        }
-        .aspect-select-btn.active {
-          background: rgba(255,255,255,0.15) !important;
-        }
+
       `}</style>
     </div>
   );
