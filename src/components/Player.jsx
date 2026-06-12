@@ -24,6 +24,7 @@ export default function Player({ channel }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef(null);
+  const isDestroyingRef = useRef(false);
 
   const [badges, setBadges] = useState({
     fps: '',
@@ -103,6 +104,7 @@ export default function Player({ channel }) {
   }, [channel]);
 
   const destroyPlayer = () => {
+    isDestroyingRef.current = true;
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -207,6 +209,8 @@ export default function Player({ channel }) {
     // Small delay so the video element fully settles after destroy before re-init.
     // Without this, video.load() from destroyPlayer races with the new source assignment.
     setTimeout(() => {
+      isDestroyingRef.current = false;
+      setErrorMsg('');
       const video = videoRef.current;
       if (!video) return;
 
@@ -610,6 +614,10 @@ export default function Player({ channel }) {
               onWaiting={() => setLoading(true)}
               onError={(e) => {
                 console.error("Video element error event:", e);
+                if (isDestroyingRef.current) {
+                  console.log("Ignored video error during channel destroy/transition");
+                  return;
+                }
                 if (!channel || !channel.url) return;
                 const videoErr = videoRef.current?.error;
                 let detail = "Unknown";
