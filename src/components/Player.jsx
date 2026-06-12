@@ -51,8 +51,9 @@ export default function Player({ channel }) {
       mpegtsRef.current = null;
     }
     if (videoRef.current) {
-      videoRef.current.src = '';
-      videoRef.current.load();
+      videoRef.current.pause();
+      videoRef.current.removeAttribute('src');
+      // Do NOT call video.load() here — it triggers onWaiting and races with re-init
     }
     setIsPlaying(false);
     setLoading(false);
@@ -63,10 +64,15 @@ export default function Player({ channel }) {
     destroyPlayer();
     setLoading(true);
 
-    const video = videoRef.current;
-    if (!video) return;
+    // Small delay so the video element fully settles after destroy before re-init.
+    // Without this, video.load() from destroyPlayer races with the new source assignment.
+    setTimeout(() => {
+      const video = videoRef.current;
+      if (!video) return;
 
-    video.volume = isMuted ? 0 : volume;
+      // Use muted property — never set volume=0 to mute, as it can stall playback
+      video.muted = isMuted;
+      video.volume = volume;
 
     const url = channel.url;
     
@@ -170,6 +176,7 @@ export default function Player({ channel }) {
           setLoading(false);
         });
     }
+    }, 50); // end setTimeout
   };
 
   const handlePlayError = (err) => {
@@ -228,6 +235,8 @@ export default function Player({ channel }) {
     if (!videoRef.current) return;
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
+    // Use the muted property only — never set volume=0 to mute
+    // Setting volume=0 can stall HLS streams or trigger unexpected pause events
     videoRef.current.muted = nextMuted;
   };
 
@@ -373,7 +382,9 @@ export default function Player({ channel }) {
           {/* Video Container */}
           <div
             className="video-container-box"
-            onClick={() => {
+            onClick={(e) => {
+              // Only handle clicks directly on the container, not bubbled from children
+              if (e.target !== e.currentTarget && e.target !== videoRef.current) return;
               if (isMobile) {
                 resetControlsTimer();
               } else {
@@ -394,11 +405,12 @@ export default function Player({ channel }) {
           }}
           onWaiting={() => setLoading(true)}
           onClick={(e) => {
-            if (!isMobile) {
-              togglePlay();
-            } else {
-              e.stopPropagation();
+            // Prevent click from bubbling to the container which would double-fire togglePlay
+            e.stopPropagation();
+            if (isMobile) {
               resetControlsTimer();
+            } else {
+              togglePlay();
             }
           }}
         />
