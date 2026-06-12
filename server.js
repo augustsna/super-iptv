@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
   xtreamUrl: 'http://s1.dnspass.xyz',
   username: 'yaevqytp',
   password: 'i1D45f9uCd',
-  adminPassword: 'admin123'
+  adminPassword: '8899'
 };
 
 // Ensure config file exists with default config if not already present
