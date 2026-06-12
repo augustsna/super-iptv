@@ -16,7 +16,7 @@ export default function Sidebar({
       <div className="sidebar-brand">
         <Radio className="brand-icon glow-text-primary" size={24} />
         <div>
-          <span className="brand-title text-digital glow-text-primary">StreamPulse</span>
+          <span className="brand-title text-digital glow-text-primary">Super Stream</span>
           <span className="brand-version text-digital">v1.1</span>
         </div>
       </div>

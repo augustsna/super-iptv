@@ -16,8 +16,8 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
   const [m3uUrl, setM3uUrl] = useState('http://s1.dnspass.xyz/get.php?username=yaevqytp&password=i1D45f9uCd&type=m3u_plus&output=ts');
 
   // CORS proxy setting for loading urls
-  const [useProxy, setUseProxy] = useState(true);
-  const [proxyUrl, setProxyUrl] = useState('https://api.allorigins.win/raw?url=');
+  const useProxy = true;
+  const proxyUrl = 'https://api.allorigins.win/raw?url=';
 
   const handleXtreamLogin = async (e) => {
     e.preventDefault();
@@ -29,13 +29,30 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
       // We will make a login request to the server
       const targetUrl = `${xtreamUrl}/player_api.php?username=${username}&password=${password}`;
       
-      // To bypass CORS, we route through allorigins if checked
-      const fetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(targetUrl)}` : targetUrl;
+      let data;
+      let usedProxy = false;
 
-      const response = await fetch(fetchUrl);
-      if (!response.ok) throw new Error('Failed to connect to the server');
-
-      const data = await response.json();
+      try {
+        // Try direct fetch first (if server has CORS headers, this succeeds instantly)
+        const response = await fetch(targetUrl);
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        const text = await response.text();
+        data = JSON.parse(text);
+      } catch (directErr) {
+        console.warn('Direct fetch failed, falling back to CORS proxy:', directErr);
+        // Fallback to proxy fetch
+        try {
+          const fetchUrl = `${proxyUrl}${encodeURIComponent(targetUrl)}`;
+          const response = await fetch(fetchUrl);
+          if (!response.ok) throw new Error(`Status ${response.status}`);
+          const text = await response.text();
+          data = JSON.parse(text);
+          usedProxy = true;
+        } catch (proxyErr) {
+          console.error('Both direct and proxy fetch failed:', proxyErr);
+          throw new Error('Connection failed. Server might be offline or proxy is blocked.');
+        }
+      }
       
       if (data.user_info && data.user_info.status === 'Active') {
         onPlaylistLoaded({
@@ -43,7 +60,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           credentials: { host: xtreamUrl, username, password },
           userInfo: data.user_info,
           serverInfo: data.server_info,
-          useProxy,
+          useProxy: usedProxy,
           proxyUrl
         });
       } else {
@@ -51,7 +68,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg(`Connection error: ${err.message}. Try enabling the CORS proxy or uploading an M3U file instead.`);
+      setErrorMsg(`Connection error: ${err.message}. Ensure credentials are correct or try uploading an M3U file.`);
       onError(err.message);
     } finally {
       setLoading(false);
@@ -66,11 +83,35 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
     setErrorMsg('');
 
     try {
-      const fetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(m3uUrl)}` : m3uUrl;
-      const response = await fetch(fetchUrl);
-      if (!response.ok) throw new Error('Failed to fetch playlist. Ensure URL is correct.');
+      let text;
+      let usedProxy = false;
 
-      const text = await response.text();
+      try {
+        // Try direct fetch first
+        const response = await fetch(m3uUrl);
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        text = await response.text();
+        if (text.trim().startsWith('<html') || text.trim().startsWith('<!doctype')) {
+          throw new Error('Received HTML response instead of M3U');
+        }
+      } catch (directErr) {
+        console.warn('Direct fetch failed, falling back to CORS proxy:', directErr);
+        // Fallback to proxy fetch
+        try {
+          const fetchUrl = `${proxyUrl}${encodeURIComponent(m3uUrl)}`;
+          const response = await fetch(fetchUrl);
+          if (!response.ok) throw new Error(`Status ${response.status}`);
+          text = await response.text();
+          if (text.trim().startsWith('<html') || text.trim().startsWith('<!doctype')) {
+            throw new Error('Received HTML response from proxy instead of M3U');
+          }
+          usedProxy = true;
+        } catch (proxyErr) {
+          console.error('Both direct and proxy fetch failed:', proxyErr);
+          throw new Error('Failed to fetch playlist. Ensure URL is correct and server is reachable.');
+        }
+      }
+
       const parsed = parseM3U(text);
 
       if (parsed.channels.length === 0) {
@@ -82,7 +123,9 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         name: 'M3U Playlist',
         channels: parsed.channels,
         categories: parsed.categories,
-        url: m3uUrl
+        url: m3uUrl,
+        useProxy: usedProxy,
+        proxyUrl
       });
     } catch (err) {
       console.error(err);
@@ -147,8 +190,8 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           }}>
             <Tv size={36} />
           </div>
-          <h1 className="text-digital glow-text-primary" style={{ fontSize: '28px', color: 'var(--primary)', marginBottom: '8px' }}>STREAMPULSE</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Premium Client-Side IPTV Player</p>
+          <h1 className="text-digital glow-text-primary" style={{ fontSize: '28px', color: 'var(--primary)', marginBottom: '8px' }}>SUPER STREAM</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>August IPTV Player</p>
         </div>
 
         {/* Tab selection */}
@@ -236,18 +279,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-                  <input 
-                    type="checkbox" 
-                    id="proxy-xtream" 
-                    checked={useProxy} 
-                    onChange={e => setUseProxy(e.target.checked)} 
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <label htmlFor="proxy-xtream" style={{ fontSize: '13px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                    Use CORS Proxy (Helps run client-side on HTTPS)
-                  </label>
-                </div>
+
 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
                   Load Stream Portal
@@ -269,18 +301,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-                  <input 
-                    type="checkbox" 
-                    id="proxy-m3u" 
-                    checked={useProxy} 
-                    onChange={e => setUseProxy(e.target.checked)} 
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <label htmlFor="proxy-m3u" style={{ fontSize: '13px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                    Use CORS Proxy
-                  </label>
-                </div>
+
 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
                   Fetch Playlist
