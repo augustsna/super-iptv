@@ -11,8 +11,8 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 // Hardcoded initial defaults
 const DEFAULT_CONFIG = {
   xtreamUrl: 'http://s1.dnspass.xyz',
-  username: 'yaevqytp',
-  password: 'i1D45f9uCd',
+  username: '',
+  password: '',
   adminPassword: '8899'
 };
 
@@ -126,7 +126,7 @@ const server = http.createServer((req, res) => {
         if (payload.xtreamUrl) config.xtreamUrl = payload.xtreamUrl;
         if (payload.username) config.username = payload.username;
         if (payload.password) config.password = payload.password;
-        
+
         // Update admin password if requested
         if (payload.newAdminPassword && payload.newAdminPassword.trim().length > 0) {
           config.adminPassword = payload.newAdminPassword.trim();
