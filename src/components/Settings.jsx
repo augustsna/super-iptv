@@ -1,10 +1,35 @@
 import React from 'react';
-import { Sliders, Trash2 } from 'lucide-react';
+import { Sliders, Trash2, Radio, Clock, Wifi } from 'lucide-react';
+
+function getExpiryInfo(expDate) {
+  if (!expDate || expDate === '0') return { label: 'Unlimited', remaining: null, color: 'var(--accent)' };
+  const expMs = parseInt(expDate, 10) * 1000;
+  const now = Date.now();
+  const diff = expMs - now;
+  const dateStr = new Date(expMs).toLocaleDateString();
+  if (diff <= 0) return { label: `Expired (${dateStr})`, remaining: 'Expired', color: '#f87171' };
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  let remaining;
+  if (days > 0) remaining = `${days}d ${hours}h ${mins}m remaining`;
+  else if (hours > 0) remaining = `${hours}h ${mins}m remaining`;
+  else remaining = `${mins}m remaining`;
+  const color = days <= 1 ? '#f87171' : days <= 7 ? '#f59e0b' : 'var(--accent)';
+  return { label: dateStr, remaining, color };
+}
 
 export default function Settings({ 
   onClearPlaylist, 
-  onClearFavorites
+  onClearFavorites,
+  playlistInfo
 }) {
+  const expiry = getExpiryInfo(playlistInfo?.userInfo?.exp_date);
+  const hostDisplay = playlistInfo?.type === 'xtream'
+    ? playlistInfo.credentials.host.replace(/^https?:\/\//, '')
+    : playlistInfo?.name || 'Local File';
+  const typeLabel = playlistInfo?.type === 'xtream' ? 'Xtream Portal' : 'M3U Playlist';
+
   return (
     <div className="settings-container animate-slide-in">
       <div className="settings-content glass-panel">
@@ -13,11 +38,63 @@ export default function Settings({
           <h2 className="text-digital glow-text-primary" style={{ fontSize: '20px', color: 'var(--primary)' }}>Application Settings</h2>
         </div>
 
+        {/* CONNECTION INFO */}
+        {playlistInfo && (
+          <section className="settings-section">
+            <div className="section-title">
+              <Wifi size={18} />
+              <span>Active Connection</span>
+            </div>
+            <div className="section-body">
+              <div className="connection-card">
+                {/* Type + status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <span className="conn-dot"></span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)' }}>
+                    {typeLabel}
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--accent)', fontWeight: '600' }}>● Live</span>
+                </div>
+
+                {/* Host */}
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Host / Source</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500', wordBreak: 'break-all' }}>{hostDisplay}</div>
+                </div>
+
+                {/* Expiry */}
+                {playlistInfo?.userInfo?.exp_date ? (
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={10} />
+                      <span>Subscription Expiry</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500', marginBottom: '4px' }}>
+                      {expiry.label}
+                    </div>
+                    {expiry.remaining && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: expiry.color, background: `${expiry.color}18`, border: `1px solid ${expiry.color}44`, borderRadius: '20px', padding: '3px 10px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: expiry.color, display: 'inline-block', boxShadow: `0 0 5px ${expiry.color}` }}></span>
+                        {expiry.remaining}
+                      </div>
+                    )}
+                    {!expiry.remaining && (
+                      <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: '600' }}>No expiry limit</div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-dark)' }}>No expiry information available</div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* DATA MANAGEMENT */}
         <section className="settings-section">
           <div className="section-title" style={{ color: '#ef4444' }}>
             <Trash2 size={18} />
-            <span>Cache & Data Management</span>
+            <span>Cache &amp; Data Management</span>
           </div>
           <div className="section-body" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <div>
@@ -68,6 +145,23 @@ export default function Settings({
         }
         .section-body {
           padding-left: 28px;
+        }
+
+        .connection-card {
+          background: rgba(0, 240, 255, 0.03);
+          border: 1px solid rgba(0, 240, 255, 0.12);
+          border-radius: var(--radius-sm);
+          padding: 16px 20px;
+          max-width: 420px;
+        }
+        .conn-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--accent);
+          box-shadow: 0 0 6px var(--accent);
+          display: inline-block;
+          flex-shrink: 0;
         }
       `}</style>
     </div>

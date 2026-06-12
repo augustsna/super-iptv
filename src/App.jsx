@@ -328,6 +328,13 @@ export default function App() {
     setSelectedSeriesItem(null);
   };
 
+  const handleGoHome = () => {
+    setActiveTab('live');
+    setSearchQuery('');
+    setSelectedChannel(null);
+    setSelectedSeriesItem(null);
+  };
+
   // Get active items to render
   const getFilteredChannels = () => {
     let list = [];
@@ -382,12 +389,18 @@ export default function App() {
     <div className="app-container">
       {/* Mobile Top Header */}
       <header className="mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={handleGoHome}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px', opacity: 1, transition: 'opacity 0.2s ease' }}
+          title="Go to Home"
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
           <Radio className="brand-icon glow-text-primary" size={20} style={{ color: 'var(--primary)' }} />
           <span className="brand-title text-digital glow-text-primary" style={{ fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>
             Super Stream
           </span>
-        </div>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button className="mobile-logout-btn" onClick={handleLogout}>
             <LogOut size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
@@ -406,6 +419,7 @@ export default function App() {
         }}
         playlistInfo={playlistInfo}
         onLogout={handleLogout}
+        onHome={handleGoHome}
         favoritesCount={favorites.length}
       />
 
@@ -415,6 +429,7 @@ export default function App() {
           <Settings
             onClearPlaylist={handleLogout}
             onClearFavorites={() => saveFavorites([])}
+            playlistInfo={playlistInfo}
           />
         ) : (
           <div className="dashboard-grid">

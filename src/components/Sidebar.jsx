@@ -1,47 +1,42 @@
 import React from 'react';
-import { Tv, Film, Clapperboard, Heart, Settings, LogOut, Radio } from 'lucide-react';
+import { Tv, Film, Clapperboard, Heart, Settings, LogOut, Radio, Clock } from 'lucide-react';
+
+function getExpiryInfo(expDate) {
+  if (!expDate || expDate === '0') return { label: 'Unlimited', remaining: null, color: 'var(--accent)' };
+  const expMs = parseInt(expDate, 10) * 1000;
+  const now = Date.now();
+  const diff = expMs - now;
+  const dateStr = new Date(expMs).toLocaleDateString();
+  if (diff <= 0) return { label: `Expired (${dateStr})`, remaining: 'Expired', color: '#f87171' };
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  let remaining;
+  if (days > 0) remaining = `${days}d ${hours}h ${mins}m remaining`;
+  else if (hours > 0) remaining = `${hours}h ${mins}m remaining`;
+  else remaining = `${mins}m remaining`;
+  const color = days <= 1 ? '#f87171' : days <= 7 ? '#f59e0b' : 'var(--accent)';
+  return { label: dateStr, remaining, color };
+}
 
 export default function Sidebar({ 
   activeTab, 
   setActiveTab, 
   playlistInfo, 
-  onLogout, 
+  onLogout,
+  onHome,
   favoritesCount 
 }) {
   const hasVod = playlistInfo?.type === 'xtream';
+  const expiry = getExpiryInfo(playlistInfo?.userInfo?.exp_date);
 
   return (
     <aside className="sidebar-container glass-panel">
       {/* Brand logo */}
-      <div className="sidebar-brand">
+      <button className="sidebar-brand" onClick={onHome} title="Go to Home">
         <Radio className="brand-icon glow-text-primary" size={24} />
-        <div>
-          <span className="brand-title text-digital glow-text-primary">Super Stream</span>
-          <span className="brand-version text-digital">v1.1</span>
-        </div>
-      </div>
-
-      {/* Playlist Status Info */}
-      <div className="playlist-status">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <span className="status-dot online"></span>
-          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-main)', letterSpacing: '0.05em' }}>
-            {playlistInfo?.type === 'xtream' ? 'Xtream Portal' : 'M3U Playlist'}
-          </span>
-        </div>
-        <div className="playlist-name" title={playlistInfo?.name || playlistInfo?.credentials?.host}>
-          {playlistInfo?.type === 'xtream' 
-            ? playlistInfo.credentials.host.replace(/^https?:\/\//, '') 
-            : playlistInfo?.name || 'Local File'}
-        </div>
-        {playlistInfo?.userInfo?.exp_date && (
-          <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginTop: '4px' }}>
-            Exp: {playlistInfo.userInfo.exp_date === '0' || !playlistInfo.userInfo.exp_date
-              ? 'Unlimited'
-              : new Date(parseInt(playlistInfo.userInfo.exp_date) * 1000).toLocaleDateString()}
-          </div>
-        )}
-      </div>
+        <span className="brand-title text-digital glow-text-primary">Super Stream</span>
+      </button>
 
       {/* Navigation menu */}
       <nav className="sidebar-menu">
@@ -97,6 +92,35 @@ export default function Sidebar({
 
       {/* Logout button at footer */}
       <div className="sidebar-footer">
+        {/* Playlist Status Info */}
+        <div className="playlist-status">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span className="status-dot online"></span>
+            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-main)', letterSpacing: '0.05em' }}>
+              {playlistInfo?.type === 'xtream' ? 'Xtream Portal' : 'M3U Playlist'}
+            </span>
+          </div>
+          <div className="playlist-name" title={playlistInfo?.name || playlistInfo?.credentials?.host}>
+            {playlistInfo?.type === 'xtream' 
+              ? playlistInfo.credentials.host.replace(/^https?:\/\//, '') 
+              : playlistInfo?.name || 'Local File'}
+          </div>
+          {playlistInfo?.userInfo?.exp_date && (
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-dark)' }}>
+                <Clock size={10} />
+                <span>Expires: {expiry.label}</span>
+              </div>
+              {expiry.remaining && (
+                <div style={{ fontSize: '10px', fontWeight: '600', color: expiry.color, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: expiry.color, display: 'inline-block', boxShadow: `0 0 4px ${expiry.color}` }}></span>
+                  {expiry.remaining}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <button className="logout-btn" onClick={onLogout}>
           <LogOut size={16} />
           <span>Disconnect</span>
@@ -124,24 +148,27 @@ export default function Sidebar({
           align-items: center;
           gap: 12px;
           margin-bottom: 32px;
-          padding-left: 8px;
+          padding: 8px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          border-radius: var(--radius-sm);
+          transition: opacity 0.2s ease;
+          width: 100%;
+          text-align: left;
+        }
+        .sidebar-brand:hover {
+          opacity: 0.8;
         }
         .brand-icon {
           color: var(--primary);
+          flex-shrink: 0;
         }
         .brand-title {
           font-size: 18px;
           font-weight: 800;
           color: var(--primary);
-          display: block;
           line-height: 1.2;
-        }
-        .brand-version {
-          font-size: 9px;
-          color: var(--text-dark);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          display: block;
         }
 
         .playlist-status {
@@ -149,7 +176,7 @@ export default function Sidebar({
           border: 1px solid var(--border-color);
           border-radius: var(--radius-sm);
           padding: 12px;
-          margin-bottom: 24px;
+          margin-bottom: 12px;
         }
         .status-dot {
           width: 6px;
