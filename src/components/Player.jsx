@@ -43,6 +43,26 @@ export default function Player({ channel }) {
     });
   };
 
+  const [dismissAudioWarning, setDismissAudioWarning] = useState(false);
+  const [codecUnsupported, setCodecUnsupported] = useState(false);
+
+  useEffect(() => {
+    if (badges.audioCodec) {
+      const codec = badges.audioCodec.toLowerCase();
+      if (codec === 'ac3' || codec === 'eac3') {
+        const video = document.createElement('video');
+        const mime = codec === 'ac3' ? 'audio/mp4; codecs="ac-3"' : 'audio/mp4; codecs="ec-3"';
+        const canPlay = video.canPlayType(mime);
+        const supported = canPlay === 'probably' || canPlay === 'maybe';
+        setCodecUnsupported(!supported);
+      } else {
+        setCodecUnsupported(false);
+      }
+    } else {
+      setCodecUnsupported(false);
+    }
+  }, [badges.audioCodec]);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
@@ -100,6 +120,8 @@ export default function Player({ channel }) {
     setLoading(false);
     setErrorMsg('');
     resetBadges();
+    setDismissAudioWarning(false);
+    setCodecUnsupported(false);
   };
 
   const updateHlsBadges = (level) => {
@@ -202,12 +224,6 @@ export default function Player({ channel }) {
 
     if (isHls) {
       setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
-      setBadges(prev => ({
-        ...prev,
-        videoCodec: 'h264',
-        audioCodec: 'aac',
-        audioChannels: '2.0'
-      }));
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
@@ -263,12 +279,6 @@ export default function Player({ channel }) {
       }
     } else if (isTs && mpegts.isSupported()) {
       setStats(prev => ({ ...prev, format: 'MPEG-TS (.ts)' }));
-      setBadges(prev => ({
-        ...prev,
-        videoCodec: 'h264',
-        audioCodec: 'ac3',
-        audioChannels: '5.1'
-      }));
       try {
         const mpegtsPlayer = mpegts.createPlayer({
           type: 'mpegts',
@@ -318,12 +328,6 @@ export default function Player({ channel }) {
     } else {
       // Direct Mp4 / WebM / Generic Playback
       setStats(prev => ({ ...prev, format: 'Direct Video Source' }));
-      setBadges(prev => ({
-        ...prev,
-        videoCodec: 'h264',
-        audioCodec: 'aac',
-        audioChannels: '2.0'
-      }));
       video.src = url;
       video.load();
       video.play()
@@ -658,6 +662,29 @@ export default function Player({ channel }) {
           </div>
         )}
 
+        {/* Audio codec compatibility warning */}
+        {codecUnsupported && !dismissAudioWarning && isPlaying && (
+          <div className="audio-warning-banner">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+              <div style={{ fontWeight: '700', fontSize: '13px', color: '#ffb703', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>⚠️ No Sound?</span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.4', textAlign: 'left' }}>
+                AC3/EAC3 audio is not supported on Chrome or some PC browsers. Try another channel, Safari browser, or the Windows app.
+              </div>
+            </div>
+            <button 
+              className="audio-warning-dismiss" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setDismissAudioWarning(true);
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Custom Overlay Controls */}
         <div
           className="player-controls-overlay"
@@ -954,6 +981,49 @@ export default function Player({ channel }) {
           display: inline-block;
           line-height: 1.2;
           font-family: var(--font-sans);
+        }
+
+        .audio-warning-banner {
+          position: absolute;
+          top: 72px;
+          right: 16px;
+          max-width: 320px;
+          background: rgba(20, 20, 25, 0.9);
+          border: 1px solid rgba(255, 183, 3, 0.3);
+          border-left: 4px solid #ffb703;
+          border-radius: 6px;
+          padding: 12px;
+          z-index: 25;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+          backdrop-filter: blur(8px);
+          animation: slideInRight 0.3s ease;
+        }
+        .audio-warning-dismiss {
+          background: rgba(255,255,255,0.08);
+          border: none;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .audio-warning-dismiss:hover {
+          background: rgba(255,255,255,0.18);
+        }
+        @keyframes slideInRight {
+          from {
+            transform: translateX(30px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
 
       `}</style>
