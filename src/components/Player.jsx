@@ -48,10 +48,6 @@ export default function Player({ channel }) {
   const [codecUnsupported, setCodecUnsupported] = useState(false);
 
   useEffect(() => {
-    if (navigator.userAgent.includes('SuperStreamWindowsApp')) {
-      setCodecUnsupported(false);
-      return;
-    }
     if (badges.audioCodec) {
       const codec = badges.audioCodec.toLowerCase();
       if (codec === 'ac3' || codec === 'eac3') {
@@ -67,59 +63,6 @@ export default function Player({ channel }) {
       setCodecUnsupported(false);
     }
   }, [badges.audioCodec]);
-
-  // Windows client layout sync hook
-  useEffect(() => {
-    const isWindowsApp = navigator.userAgent.includes('SuperStreamWindowsApp');
-    if (!isWindowsApp || !channel) return;
-
-    const updateRect = () => {
-      const container = document.querySelector('.video-container-box');
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        console.log(`APP_BRIDGE_RESIZE:${rect.left},${rect.top},${rect.width},${rect.height}`);
-      } else {
-        console.log('APP_BRIDGE_RESIZE:hide');
-      }
-    };
-
-    updateRect();
-    window.addEventListener('resize', updateRect);
-    // Poll to keep track of transitions / sidebar toggles
-    const interval = setInterval(updateRect, 150);
-
-    return () => {
-      window.removeEventListener('resize', updateRect);
-      clearInterval(interval);
-      console.log('APP_BRIDGE_RESIZE:hide');
-    };
-  }, [channel]);
-
-  // Windows client badges handler
-  useEffect(() => {
-    const isWindowsApp = navigator.userAgent.includes('SuperStreamWindowsApp');
-    if (!isWindowsApp) return;
-
-    window.updateNativePlayerBadges = (newBadges) => {
-      setBadges(prev => ({
-        ...prev,
-        ...newBadges
-      }));
-      if (newBadges.resolution) {
-        setStats(prev => ({ ...prev, resolution: newBadges.resolution }));
-      }
-      if (newBadges.fps) {
-        setStats(prev => ({ ...prev, fps: newBadges.fps }));
-      }
-      if (newBadges.format) {
-        setStats(prev => ({ ...prev, format: newBadges.format }));
-      }
-    };
-
-    return () => {
-      delete window.updateNativePlayerBadges;
-    };
-  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -162,14 +105,6 @@ export default function Player({ channel }) {
 
   const destroyPlayer = () => {
     isDestroyingRef.current = true;
-    if (navigator.userAgent.includes('SuperStreamWindowsApp')) {
-      console.log("APP_BRIDGE_STOP");
-      setIsPlaying(false);
-      setLoading(false);
-      setErrorMsg('');
-      resetBadges();
-      return;
-    }
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -270,21 +205,6 @@ export default function Player({ channel }) {
   const initPlayer = () => {
     destroyPlayer();
     setLoading(true);
-
-    if (navigator.userAgent.includes('SuperStreamWindowsApp')) {
-      console.log("APP_BRIDGE_PLAY:" + JSON.stringify({
-        url: channel.url,
-        name: channel.name,
-        logo: channel.logo,
-        category: channel.category
-      }));
-      console.log("APP_BRIDGE_VOLUME:" + volume);
-      console.log("APP_BRIDGE_MUTE:" + isMuted);
-      setIsPlaying(true);
-      setLoading(false);
-      setErrorMsg('');
-      return;
-    }
 
     // Small delay so the video element fully settles after destroy before re-init.
     // Without this, video.load() from destroyPlayer races with the new source assignment.
@@ -511,23 +431,6 @@ export default function Player({ channel }) {
   }, [isPlaying]);
 
   const togglePlay = () => {
-    if (navigator.userAgent.includes('SuperStreamWindowsApp')) {
-      if (isPlaying) {
-        console.log("APP_BRIDGE_STOP");
-        setIsPlaying(false);
-      } else {
-        console.log("APP_BRIDGE_PLAY:" + JSON.stringify({
-          url: channel.url,
-          name: channel.name,
-          logo: channel.logo,
-          category: channel.category
-        }));
-        console.log("APP_BRIDGE_VOLUME:" + volume);
-        console.log("APP_BRIDGE_MUTE:" + isMuted);
-        setIsPlaying(true);
-      }
-      return;
-    }
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
@@ -537,18 +440,12 @@ export default function Player({ channel }) {
   };
 
   const toggleMute = () => {
-    const isWindowsApp = navigator.userAgent.includes('SuperStreamWindowsApp');
-    if (!videoRef.current && !isWindowsApp) return;
+    if (!videoRef.current) return;
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
-    if (isWindowsApp) {
-      console.log("APP_BRIDGE_MUTE:" + nextMuted);
-      console.log("APP_BRIDGE_VOLUME:" + (nextMuted ? 0 : volume));
-    } else if (videoRef.current) {
-      // Use the muted property only — never set volume=0 to mute
-      // Setting volume=0 can stall HLS streams or trigger unexpected pause events
-      videoRef.current.muted = nextMuted;
-    }
+    // Use the muted property only — never set volume=0 to mute
+    // Setting volume=0 can stall HLS streams or trigger unexpected pause events
+    videoRef.current.muted = nextMuted;
   };
 
   const handleVolumeChange = (e) => {
@@ -556,9 +453,7 @@ export default function Player({ channel }) {
     setVolume(val);
     setIsMuted(val === 0);
     localStorage.setItem('superstream_volume', String(val));
-    if (navigator.userAgent.includes('SuperStreamWindowsApp')) {
-      console.log("APP_BRIDGE_VOLUME:" + val);
-    } else if (videoRef.current) {
+    if (videoRef.current) {
       videoRef.current.volume = val;
       videoRef.current.muted = val === 0;
     }
@@ -691,14 +586,10 @@ export default function Player({ channel }) {
           </p>
         </div>
       ) : (
-        <div 
-          className="player-wrapper glass-panel"
-          style={navigator.userAgent.includes('SuperStreamWindowsApp') ? { background: 'transparent', borderColor: 'transparent', boxShadow: 'none' } : {}}
-        >
+        <div className="player-wrapper glass-panel">
           {/* Video Container */}
           <div
             className="video-container-box"
-            style={navigator.userAgent.includes('SuperStreamWindowsApp') ? { background: 'transparent' } : {}}
             onClick={(e) => {
               // Only handle clicks directly on the container, not bubbled from children
               if (e.target !== e.currentTarget && e.target !== videoRef.current) return;
@@ -712,7 +603,6 @@ export default function Player({ channel }) {
             <video
               ref={videoRef}
               className={`video-element ${getAspectClass()}`}
-              style={navigator.userAgent.includes('SuperStreamWindowsApp') ? { opacity: 0 } : {}}
               playsInline
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
