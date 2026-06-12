@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Heart, RefreshCw, AlertCircle, Play, Film, Tv, PlayCircle, Star } from 'lucide-react';
+import { Search, Heart, RefreshCw, AlertCircle, Play, Film, Tv, PlayCircle, Star, Settings as SettingsIcon, LogOut, Radio, Clapperboard } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Player from './components/Player';
 import PlaylistSelector from './components/PlaylistSelector';
-import EPGGuide from './components/EPGGuide';
 import Settings from './components/Settings';
 import { formatXtreamLiveStream, formatXtreamMovie, formatXtreamSeries } from './utils/parsers';
 
@@ -17,7 +16,7 @@ export default function App() {
 
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [favorites, setFavorites] = useState([]);
-  const [epgData, setEpgData] = useState({});
+
 
   // Xtream Codes extra state
   const [movies, setMovies] = useState([]);
@@ -33,6 +32,7 @@ export default function App() {
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
 
   // Proxy state (synced with PlaylistSelector)
   const [useProxy, setUseProxy] = useState(true);
@@ -380,7 +380,23 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
+      {/* Mobile Top Header */}
+      <header className="mobile-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Radio className="brand-icon glow-text-primary" size={20} style={{ color: 'var(--primary)' }} />
+          <span className="brand-title text-digital glow-text-primary" style={{ fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>
+            Super Stream
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button className="mobile-logout-btn" onClick={handleLogout}>
+            <LogOut size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+            Disconnect
+          </button>
+        </div>
+      </header>
+
+      {/* Sidebar (Desktop only) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -403,19 +419,10 @@ export default function App() {
         ) : (
           <div className="dashboard-grid">
 
-            {/* Left side: player and EPG */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'hidden' }}>
-              <div style={{ flex: 1, minHeight: '320px', maxHeight: '550px' }}>
+            {/* Left side: player only */}
+            <div className="player-column">
+              <div className={`player-wrapper-container ${!selectedChannel ? 'placeholder' : ''}`}>
                 <Player channel={selectedChannel} />
-              </div>
-              <div style={{ flex: '0 0 280px' }}>
-                <EPGGuide
-                  channel={selectedChannel}
-                  epgData={epgData}
-                  onEpgLoaded={(data) => setEpgData(data)}
-                  useProxy={useProxy}
-                  proxyUrl={proxyUrl}
-                />
               </div>
             </div>
 
@@ -811,7 +818,108 @@ export default function App() {
         )}
       </main>
 
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('live');
+            setSearchQuery('');
+            setSelectedSeriesItem(null);
+          }}
+        >
+          <Tv size={20} />
+          <span>Live TV</span>
+        </button>
+
+        {playlistInfo?.type === 'xtream' && (
+          <>
+            <button 
+              className={`mobile-nav-item ${activeTab === 'movies' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('movies');
+                setSearchQuery('');
+                setSelectedSeriesItem(null);
+              }}
+            >
+              <Film size={20} />
+              <span>Movies</span>
+            </button>
+
+            <button 
+              className={`mobile-nav-item ${activeTab === 'series' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('series');
+                setSearchQuery('');
+                setSelectedSeriesItem(null);
+              }}
+            >
+              <Clapperboard size={20} />
+              <span>Series</span>
+            </button>
+          </>
+        )}
+
+        <button 
+          className={`mobile-nav-item ${activeTab === 'favorites' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('favorites');
+            setSearchQuery('');
+            setSelectedSeriesItem(null);
+          }}
+        >
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <Heart size={20} fill={activeTab === 'favorites' ? 'currentColor' : 'none'} />
+            {favorites.length > 0 && (
+              <span className="mobile-fav-badge text-digital">{favorites.length}</span>
+            )}
+          </div>
+          <span>Favorites</span>
+        </button>
+
+        <button 
+          className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('settings');
+            setSearchQuery('');
+            setSelectedSeriesItem(null);
+          }}
+        >
+          <SettingsIcon size={20} />
+          <span>Settings</span>
+        </button>
+      </nav>
+
       <style>{`
+        .player-column {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .player-wrapper-container {
+          width: 100%;
+          height: 100%;
+          max-height: 70vh;
+          min-height: 400px;
+        }
+        .player-wrapper-container.placeholder {
+          height: 100%;
+          max-height: 70vh;
+          min-height: 400px;
+          max-width: none;
+          width: 100%;
+        }
+
+        @media (min-width: 1025px) {
+          .player-wrapper-container {
+            max-height: calc(100vh - 64px);
+          }
+          .player-wrapper-container.placeholder {
+            max-height: calc(100vh - 64px);
+          }
+        }
+
         .main-list-panel {
           height: 100%;
           display: flex;
@@ -1064,6 +1172,158 @@ export default function App() {
         .episode-item:hover {
           background: rgba(255,255,255,0.03);
           border-color: var(--primary);
+        }
+
+        /* Mobile Responsive Layout Styles */
+        .mobile-header {
+          display: none;
+          height: 56px;
+          background: rgba(10, 12, 22, 0.85);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--border-color);
+          padding: 0 16px;
+          align-items: center;
+          justify-content: space-between;
+          position: sticky;
+          top: 0;
+          z-index: 40;
+        }
+
+        .mobile-bottom-nav {
+          display: none;
+          height: 60px;
+          background: rgba(10, 12, 20, 0.9);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-top: 1px solid var(--border-color);
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 40;
+          justify-content: space-around;
+          align-items: center;
+        }
+
+        .mobile-nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          font-size: 10px;
+          font-weight: 500;
+          cursor: pointer;
+          gap: 4px;
+          transition: all 0.2s ease;
+        }
+
+        .mobile-nav-item:hover, .mobile-nav-item.active {
+          color: var(--primary);
+        }
+
+        .mobile-fav-badge {
+          position: absolute;
+          top: -4px;
+          right: -10px;
+          background: var(--secondary);
+          color: #fff;
+          font-size: 8px;
+          padding: 1px 4px;
+          border-radius: 6px;
+          font-weight: 800;
+          box-shadow: 0 0 6px var(--secondary-glow);
+        }
+
+        .mobile-logout-btn {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border-color);
+          color: var(--text-muted);
+          font-size: 11px;
+          font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .mobile-logout-btn:hover {
+          color: #f87171;
+          border-color: rgba(239,68,68,0.3);
+        }
+
+        @media (max-width: 768px) {
+          .app-container {
+            flex-direction: column;
+            overflow-y: auto;
+            height: 100vh;
+            padding-bottom: 60px;
+          }
+          
+          .sidebar-container {
+            display: none !important;
+          }
+
+          .mobile-header {
+            display: flex;
+          }
+
+          .mobile-bottom-nav {
+            display: flex;
+          }
+
+          .main-content {
+            height: auto;
+            flex: 1;
+          }
+
+          .dashboard-grid {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 12px;
+            overflow: visible;
+          }
+
+          /* Sticky Top Player on Mobile */
+          .player-column {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          
+          .player-wrapper-container {
+            position: sticky;
+            top: 56px;
+            z-index: 35;
+            background: #000;
+            margin: -12px -12px 0 -12px;
+            border-radius: 0 !important;
+          }
+          .player-wrapper-container.placeholder {
+            display: block !important;
+            height: 150px;
+            margin-bottom: 12px;
+          }
+          .player-wrapper-container .player-wrapper,
+          .player-wrapper-container .player-empty-container {
+            border-radius: 0 !important;
+          }
+
+          .main-list-panel {
+            height: auto !important;
+            min-height: 400px;
+            overflow: visible !important;
+          }
+          .list-items-container {
+            overflow: visible !important;
+          }
+          
+          .seasons-container {
+            max-height: none !important;
+          }
         }
       `}</style>
     </div>

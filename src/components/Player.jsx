@@ -17,6 +17,13 @@ export default function Player({ channel }) {
   const [stats, setStats] = useState({ format: 'None', resolution: '0x0', fps: 0, bitrate: 0 });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Handle stream initialization
   useEffect(() => {
@@ -305,20 +312,20 @@ export default function Player({ channel }) {
     }
   };
 
-  if (!channel) {
-    return (
-      <div className="player-empty-container glass-panel">
-        <Tv size={48} style={{ color: 'var(--text-dark)', marginBottom: '16px' }} />
-        <h3 style={{ color: 'var(--text-muted)' }}>Select a channel to start streaming</h3>
-        <p style={{ color: 'var(--text-dark)', fontSize: '13px', marginTop: '4px' }}>Browse categories in the sidebar</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="player-wrapper glass-panel">
-      {/* Video Container */}
-      <div className={`video-container-box`}>
+    <div style={{ height: '100%', width: '100%' }}>
+      {!channel ? (
+        <div className="player-empty-container glass-panel">
+          <Tv size={isMobile ? 32 : 64} style={{ color: 'var(--text-dark)', marginBottom: isMobile ? '8px' : '20px' }} />
+          <h3 style={{ color: 'var(--text-muted)', fontSize: isMobile ? '14px' : '20px', fontWeight: '700' }}>Select a channel to start streaming</h3>
+          <p style={{ color: 'var(--text-dark)', fontSize: isMobile ? '11px' : '14px', marginTop: '8px' }}>
+            {isMobile ? 'Browse categories in the bottom navigation bar' : 'Browse categories in the sidebar'}
+          </p>
+        </div>
+      ) : (
+        <div className="player-wrapper glass-panel">
+          {/* Video Container */}
+          <div className="video-container-box">
         <video 
           ref={videoRef}
           className={`video-element ${getAspectClass()}`}
@@ -430,6 +437,8 @@ export default function Player({ channel }) {
           </div>
         </div>
       </div>
+    </div>
+  )}
 
       <style>{`
         .player-wrapper {

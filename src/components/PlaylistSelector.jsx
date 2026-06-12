@@ -185,6 +185,26 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+
+        @media (max-width: 480px) {
+          .playlist-selector-container {
+            padding: 12px;
+          }
+          .playlist-selector-container .glass-panel {
+            padding: 24px 16px !important;
+            margin: auto 0;
+          }
+          .playlist-selector-container h1 {
+            font-size: 22px !important;
+          }
+          .playlist-selector-container p {
+            font-size: 12px !important;
+          }
+          .playlist-selector-container form > div {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+        }
       `}</style>
     </div>
   );
