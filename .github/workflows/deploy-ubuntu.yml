@@ -23,7 +23,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: Deploy static files to Ubuntu Server
+      - name: Deploy built files to Ubuntu Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -34,27 +34,3 @@ jobs:
           target: "/var/www/super-iptv/dist"
           strip_components: 1
           overwrite: true
-
-      - name: Deploy backend files to Ubuntu Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 22
-          source: "server.js,package.json,package-lock.json"
-          target: "/var/www/super-iptv"
-          overwrite: true
-
-      - name: Install server dependencies & restart PM2 service
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: 22
-          script: |
-            cd /var/www/super-iptv
-            npm install --omit=dev
-            pm2 start server.js --name "super-iptv" || pm2 restart "super-iptv"
-            pm2 save

@@ -4,14 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node dev.js",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "start": "node server.js"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "express": "^4.21.2",
     "hls.js": "^1.6.16",
     "lucide-react": "^1.17.0",
     "mpegts.js": "^1.8.0",

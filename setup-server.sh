@@ -50,16 +50,6 @@ server {
         try_files \$uri \$uri/ /index.html;
     }
 
-    # Proxy API requests to Express backend running on port 3000
-    location /api {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-    }
-
     # Compress assets
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
@@ -85,30 +75,6 @@ fi
 echo "--> Testing and restarting Nginx..."
 nginx -t
 systemctl restart nginx
-
-echo "--> Installing Node.js and PM2..."
-apt-get install -y curl
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
-npm install -g pm2
-
-echo "--> Setting up production dependencies and starting server process..."
-cd /var/www/super-iptv
-if [ -f package.json ]; then
-  npm install --omit=dev
-  pm2 start server.js --name "super-iptv" || pm2 restart "super-iptv"
-  pm2 save
-  
-  # Configure PM2 to start on boot
-  if [ "$REAL_USER" = "root" ]; then
-    USER_HOME="/root"
-  else
-    USER_HOME="/home/$REAL_USER"
-  fi
-  env PATH=$PATH:/usr/bin pm2 startup systemd -u $REAL_USER --hp $USER_HOME || true
-else
-  echo "Warning: package.json not found in /var/www/super-iptv. PM2 start skipped."
-fi
 
 echo "--> Configuring Firewall (UFW) to allow HTTP only..."
 ufw allow 'Nginx HTTP'
