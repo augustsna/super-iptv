@@ -24,6 +24,10 @@ export default function Settings({
   onClearFavorites,
   playlistInfo
 }) {
+  const [useProxy, setUseProxy] = React.useState(() => {
+    return localStorage.getItem('superstream_use_transcode_proxy') === 'true';
+  });
+
   const expiry = getExpiryInfo(playlistInfo?.userInfo?.exp_date);
   const hostDisplay = playlistInfo?.type === 'xtream'
     ? playlistInfo.credentials.host.replace(/^https?:\/\//, '')
@@ -89,6 +93,34 @@ export default function Settings({
             </div>
           </section>
         )}
+
+        {/* PLAYBACK PREFERENCES */}
+        <section className="settings-section">
+          <div className="section-title">
+            <Sliders size={18} style={{ color: 'var(--primary)' }} />
+            <span>Playback Preferences</span>
+          </div>
+          <div className="section-body">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0, 240, 255, 0.03)', padding: '16px 20px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(0, 240, 255, 0.12)', maxWidth: '420px' }}>
+              <input
+                type="checkbox"
+                id="transcodeProxy"
+                checked={useProxy}
+                onChange={(e) => {
+                  setUseProxy(e.target.checked);
+                  localStorage.setItem('superstream_use_transcode_proxy', String(e.target.checked));
+                }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
+              />
+              <label htmlFor="transcodeProxy" style={{ color: '#fff', fontSize: '13px', fontWeight: '500', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px', userSelect: 'none' }}>
+                <span>Enable Audio Transcoding Proxy</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark)', fontWeight: '400', lineHeight: '1.4' }}>
+                  Routes streams through local server to transcode AC-3/EC-3 Dolby audio to stereo AAC for Chrome compatibility.
+                </span>
+              </label>
+            </div>
+          </div>
+        </section>
 
         {/* DATA MANAGEMENT */}
         <section className="settings-section">

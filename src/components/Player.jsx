@@ -9,6 +9,9 @@ export default function Player({ channel }) {
   const mpegtsRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [useProxy, setUseProxy] = useState(() => {
+    return localStorage.getItem('superstream_use_transcode_proxy') === 'true';
+  });
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('superstream_volume');
     return saved !== null ? parseFloat(saved) : 1;
@@ -47,17 +50,6 @@ export default function Player({ channel }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Handle stream initialization
-  useEffect(() => {
-    if (!channel || !channel.url) return;
-    
-    initPlayer();
-
-    return () => {
-      destroyPlayer();
-    };
-  }, [channel]);
 
   const destroyPlayer = () => {
     if (hlsRef.current) {
@@ -168,12 +160,14 @@ export default function Player({ channel }) {
       video.volume = volume;
 
     const url = channel.url;
+    const isProxyActive = useProxy;
+    const playUrl = isProxyActive ? `/api/stream?url=${encodeURIComponent(url)}` : url;
     
     // Check url extension and determine type
-    const isHls = url.includes('.m3u8') || channel.type === 'hls';
-    const isTs = url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
+    const isHls = !isProxyActive && (url.includes('.m3u8') || channel.type === 'hls');
+    const isTs = isProxyActive || url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
 
-    console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs})`);
+    console.log(`Initializing play source: ${playUrl} (HLS: ${isHls}, TS: ${isTs}, Proxy: ${isProxyActive})`);
 
     if (isHls) {
       setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
@@ -189,7 +183,7 @@ export default function Player({ channel }) {
           lowLatencyMode: true,
         });
         hlsRef.current = hls;
-        hls.loadSource(url);
+        hls.loadSource(playUrl);
         hls.attachMedia(video);
         
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -227,7 +221,7 @@ export default function Player({ channel }) {
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS (Safari)
-        video.src = url;
+        video.src = playUrl;
         video.addEventListener('loadedmetadata', () => {
           video.play().catch(handlePlayError);
           setLoading(false);
@@ -248,7 +242,7 @@ export default function Player({ channel }) {
         const mpegtsPlayer = mpegts.createPlayer({
           type: 'mpegts',
           isLive: true,
-          url: url,
+          url: playUrl,
         }, {
           enableWorker: true,
           enableStashBuffer: false,
@@ -289,7 +283,7 @@ export default function Player({ channel }) {
         audioCodec: 'aac',
         audioChannels: '2.0'
       }));
-      video.src = url;
+      video.src = playUrl;
       video.load();
       video.play()
         .then(() => {
@@ -308,6 +302,21 @@ export default function Player({ channel }) {
     setIsPlaying(false);
     setErrorMsg('Stream could not be played. This is common due to Mixed Content (HTTP on HTTPS site) or CORS blocking. Check Settings to apply a proxy.');
   };
+
+  // Handle stream initialization
+  useEffect(() => {
+    if (!channel || !channel.url) return;
+    
+    const timer = setTimeout(() => {
+      initPlayer();
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      destroyPlayer();
+    };
+  }, [channel, useProxy]);
+
 
 
 
@@ -591,10 +600,31 @@ export default function Player({ channel }) {
         {errorMsg && (
           <div className="error-overlay">
             <p className="error-title">Playback Error</p>
-            <p className="error-desc">{errorMsg}</p>
-            <button className="btn btn-primary btn-sm" onClick={initPlayer} style={{ marginTop: '12px', padding: '8px 16px', fontSize: '12px' }}>
-              <RefreshCw size={12} /> Retry Playback
-            </button>
+            <p className="error-desc">
+              {errorMsg}
+              {useProxy && (
+                <span style={{ display: 'block', marginTop: '8px', color: 'var(--accent)', fontWeight: '600', fontSize: '11px' }}>
+                  Note: The transcoding proxy requires FFmpeg installed on the server hosting this app.
+                </span>
+              )}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '12px' }}>
+              <button className="btn btn-primary btn-sm" onClick={initPlayer} style={{ padding: '8px 16px', fontSize: '12px' }}>
+                <RefreshCw size={12} /> Retry Playback
+              </button>
+              {!useProxy && (
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  onClick={() => {
+                    localStorage.setItem('superstream_use_transcode_proxy', 'true');
+                    setUseProxy(true);
+                  }}
+                  style={{ padding: '8px 16px', fontSize: '12px', border: '1px solid var(--primary)' }}
+                >
+                  Retry with Transcoding Proxy
+                </button>
+              )}
+            </div>
           </div>
         )}
 
