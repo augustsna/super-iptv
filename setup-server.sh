@@ -40,7 +40,7 @@ echo "--> Configuring Nginx for HTTP Only..."
 cat <<EOF > /etc/nginx/sites-available/super-iptv
 server {
     listen 80;
-    server_name $SERVER_IP;
+    server_name 107.174.178.52;
 
     root /var/www/super-iptv/dist;
     index index.html;
@@ -84,7 +84,7 @@ echo "============================================="
 echo " SETUP COMPLETED SUCCESSFULLY!"
 echo "============================================="
 echo "1. Web Root: /var/www/super-iptv/dist"
-echo "2. Served at: http://$SERVER_IP"
+echo "2. Served at: http://107.174.178.52"
 echo ""
 echo "To authorize GitHub Actions to update this site:"
 echo "-----------------------------------------------"
@@ -94,7 +94,7 @@ echo "2. Append the contents of '~/.ssh/id_ed25519.pub' to your server's file:"
 echo "   /home/$REAL_USER/.ssh/authorized_keys"
 echo "3. Go to GitHub -> Settings -> Secrets and variables -> Actions -> Secrets"
 echo "4. Add the following secrets:"
-echo "   - SSH_HOST : $SERVER_IP (or your public IP)"
+echo "   - SSH_HOST : 107.174.178.52 (or your public IP)"
 echo "   - SSH_USER : $REAL_USER"
 echo "   - SSH_KEY  : (Copy the contents of your private key '~/.ssh/id_ed25519')"
 echo "============================================="
