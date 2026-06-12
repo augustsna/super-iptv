@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
+import { spawn, exec } from 'child_process';
 
 const PORT = process.env.PORT || 5000;
 const __filename = url.fileURLToPath(import.meta.url);
@@ -147,11 +148,71 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/stream
+  if (pathname === '/api/stream' && req.method === 'GET') {
+    const streamUrl = parsedUrl.query.url;
+    if (!streamUrl) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing stream url parameter' }));
+      return;
+    }
+
+    console.log(`[Proxy] Transcoding audio to AAC for stream: ${streamUrl}`);
+
+    // Set headers for live streaming TS format
+    res.writeHead(200, {
+      'Content-Type': 'video/mp2t',
+      'Connection': 'keep-alive',
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    const ffmpegArgs = [
+      '-re',
+      '-i', streamUrl,
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-ac', '2',
+      '-f', 'mpegts',
+      'pipe:1'
+    ];
+
+    const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+
+    ffmpeg.stdout.pipe(res);
+
+    ffmpeg.on('error', (err) => {
+      console.error('[Proxy] FFmpeg process error:', err.message);
+      if (err.code === 'ENOENT') {
+        console.error('[Proxy] FFmpeg was not found in system PATH. Transcoding failed.');
+      }
+      res.end();
+    });
+
+    req.on('close', () => {
+      console.log('[Proxy] Client disconnected, terminating FFmpeg process');
+      ffmpeg.kill('SIGKILL');
+    });
+    return;
+  }
+
   // Fallback for page not found
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not Found' }));
 });
 
+function checkFfmpeg() {
+  exec('ffmpeg -version', (err) => {
+    if (err) {
+      console.warn('\x1b[33m%s\x1b[0m', 'WARNING: ffmpeg was not found in your system PATH. AC-3/EC-3 transcoding will fail. Please install FFmpeg on this system.');
+    } else {
+      console.log('FFmpeg is verified and ready for dynamic audio transcoding.');
+    }
+  });
+}
+
 server.listen(PORT, () => {
   console.log(`IPTV Config API running on port ${PORT}`);
+  checkFfmpeg();
 });

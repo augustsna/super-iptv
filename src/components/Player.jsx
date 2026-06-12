@@ -23,6 +23,7 @@ export default function Player({ channel }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef(null);
+  const [isTranscoded, setIsTranscoded] = useState(false);
 
   const [badges, setBadges] = useState({
     fps: '',
@@ -48,6 +49,11 @@ export default function Player({ channel }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Reset transcoding flag when channel changes
+  useEffect(() => {
+    setIsTranscoded(false);
+  }, [channel]);
+
   // Handle stream initialization
   useEffect(() => {
     if (!channel || !channel.url) return;
@@ -57,7 +63,21 @@ export default function Player({ channel }) {
     return () => {
       destroyPlayer();
     };
-  }, [channel]);
+  }, [channel, isTranscoded]);
+
+  // Automatically fallback to server-side transcoding when Dolby audio (AC-3/EC-3) is detected
+  useEffect(() => {
+    const isProxyUrl = (u) => u && (u.includes('/api/stream') || u.includes('/stream?url='));
+    
+    if (
+      (badges.audioCodec === 'ac3' || badges.audioCodec === 'eac3') &&
+      !isProxyUrl(channel?.url) &&
+      !isTranscoded
+    ) {
+      console.log(`[Player] Dolby codec (${badges.audioCodec}) detected on Chrome. Reloading stream via transcoder.`);
+      setIsTranscoded(true);
+    }
+  }, [badges.audioCodec, channel, isTranscoded]);
 
   const destroyPlayer = () => {
     if (hlsRef.current) {
@@ -167,13 +187,18 @@ export default function Player({ channel }) {
       video.muted = isMuted;
       video.volume = volume;
 
-    const url = channel.url;
+    let url = channel.url;
+    const isProxyUrl = url && (url.includes('/api/stream') || url.includes('/stream?url='));
+    const isTranscodedStream = isTranscoded && !isProxyUrl;
+    if (isTranscodedStream) {
+      url = `/api/stream?url=${encodeURIComponent(url)}`;
+    }
     
     // Check url extension and determine type
-    const isHls = url.includes('.m3u8') || channel.type === 'hls';
-    const isTs = url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
+    const isHls = !isTranscodedStream && (url.includes('.m3u8') || channel.type === 'hls');
+    const isTs = isTranscodedStream || url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
 
-    console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs})`);
+    console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs}, Transcoded: ${isTranscodedStream})`);
 
     if (isHls) {
       setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
