@@ -58,7 +58,12 @@ export default function App() {
 
   const [loadStep, setLoadStep] = useState(() => {
     const saved = localStorage.getItem('streampulse_load_step');
-    return saved ? parseInt(saved, 10) : 50;
+    if (saved) {
+      if (saved === 'all') return 1000000;
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 50;
   });
   const [isCustomLoad, setIsCustomLoad] = useState(() => {
     const saved = localStorage.getItem('streampulse_is_custom_load');
