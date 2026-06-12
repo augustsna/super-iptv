@@ -94,7 +94,7 @@ export default function Player({ channel }) {
   // Handle stream initialization
   useEffect(() => {
     if (!channel || !channel.url) return;
-    
+
     initPlayer();
 
     return () => {
@@ -128,7 +128,7 @@ export default function Player({ channel }) {
     if (!level) return;
     let videoCodec = '';
     let audioCodec = '';
-    
+
     if (level.attrs && level.attrs.CODECS) {
       const codecs = level.attrs.CODECS.split(',');
       codecs.forEach(c => {
@@ -146,7 +146,7 @@ export default function Player({ channel }) {
         }
       });
     }
-    
+
     if (!videoCodec && level.videoCodec) {
       const v = level.videoCodec.toLowerCase();
       if (v.includes('avc') || v.includes('h264')) videoCodec = 'h264';
@@ -168,7 +168,7 @@ export default function Player({ channel }) {
 
   const updateMpegtsBadges = (mediaInfo) => {
     if (!mediaInfo) return;
-    
+
     let videoCodec = '';
     if (mediaInfo.videoCodec) {
       const v = mediaInfo.videoCodec.toLowerCase();
@@ -176,7 +176,7 @@ export default function Player({ channel }) {
       else if (v.includes('h265') || v.includes('hevc') || v.includes('hvc')) videoCodec = 'hevc';
       else videoCodec = v;
     }
-    
+
     let audioCodec = '';
     if (mediaInfo.audioCodec) {
       const a = mediaInfo.audioCodec.toLowerCase();
@@ -214,131 +214,131 @@ export default function Player({ channel }) {
       video.muted = isMuted;
       video.volume = volume;
 
-    const url = channel.url;
-    
-    // Check url extension and determine type
-    const isHls = url.includes('.m3u8') || channel.type === 'hls';
-    const isTs = url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
+      const url = channel.url;
 
-    console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs})`);
+      // Check url extension and determine type
+      const isHls = url.includes('.m3u8') || channel.type === 'hls';
+      const isTs = url.includes('.ts') || url.includes('output=ts') || channel.url.endsWith('.ts');
 
-    if (isHls) {
-      setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-        });
-        hlsRef.current = hls;
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(handlePlayError);
-          setLoading(false);
-          if (hls.levels && hls.levels.length > 0) {
-            updateHlsBadges(hls.levels[hls.currentLevel] || hls.levels[0]);
-          }
-        });
+      console.log(`Initializing play source: ${url} (HLS: ${isHls}, TS: ${isTs})`);
 
-        hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-          if (hls.levels && hls.levels[data.level]) {
-            updateHlsBadges(hls.levels[data.level]);
-          }
-        });
- 
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('HLS Error:', data);
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                setErrorMsg('Network error playing stream. Try reloading or checking your connection.');
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                setErrorMsg('Media parsing error. Recovering...');
-                hls.recoverMediaError();
-                break;
-              default:
-                setErrorMsg('Fatal stream playback error.');
-                destroyPlayer();
-                break;
+      if (isHls) {
+        setStats(prev => ({ ...prev, format: 'HLS (.m3u8)' }));
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+          });
+          hlsRef.current = hls;
+          hls.loadSource(url);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(handlePlayError);
+            setLoading(false);
+            if (hls.levels && hls.levels.length > 0) {
+              updateHlsBadges(hls.levels[hls.currentLevel] || hls.levels[0]);
             }
-          }
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS (Safari)
-        video.src = url;
-        video.addEventListener('loadedmetadata', () => {
-          video.play().catch(handlePlayError);
+          });
+
+          hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+            if (hls.levels && hls.levels[data.level]) {
+              updateHlsBadges(hls.levels[data.level]);
+            }
+          });
+
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS Error:', data);
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  setErrorMsg('Network error playing stream. Try reloading or checking your connection.');
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  setErrorMsg('Media parsing error. Recovering...');
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  setErrorMsg('Fatal stream playback error.');
+                  destroyPlayer();
+                  break;
+              }
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS (Safari)
+          video.src = url;
+          video.addEventListener('loadedmetadata', () => {
+            video.play().catch(handlePlayError);
+            setLoading(false);
+          });
+        } else {
+          setErrorMsg('HLS playback is not supported in this browser.');
           setLoading(false);
-        });
+        }
+      } else if (isTs && mpegts.isSupported()) {
+        setStats(prev => ({ ...prev, format: 'MPEG-TS (.ts)' }));
+        try {
+          const mpegtsPlayer = mpegts.createPlayer({
+            type: 'mpegts',
+            isLive: true,
+            url: url,
+          }, {
+            enableWorker: true,
+            enableStashBuffer: false,
+            liveBufferLatencyChaser: true,
+          });
+
+          mpegtsRef.current = mpegtsPlayer;
+          mpegtsPlayer.attachMediaElement(video);
+          mpegtsPlayer.load();
+
+          mpegtsPlayer.play()
+            .then(() => {
+              setLoading(false);
+            })
+            .catch(err => {
+              handlePlayError(err);
+            });
+
+          mpegtsPlayer.on(mpegts.Events.MEDIA_INFO, (mediaInfo) => {
+            updateMpegtsBadges(mediaInfo);
+          });
+
+          mpegtsPlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
+            console.error('MPEG-TS Error:', type, detail, info);
+
+            // Check if video is actually playing.
+            // Non-fatal media errors (such as decoding warnings or transient buffer append issues)
+            // can occur while the video continues playing smoothly in the background.
+            const video = videoRef.current;
+            if (video && !video.paused && video.currentTime > 0) {
+              console.warn(`Non-fatal MPEG-TS error ignored because video is playing: ${type} - ${detail}`, info);
+              return;
+            }
+
+            setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
+            setLoading(false);
+          });
+        } catch (err) {
+          setErrorMsg(`Failed to initialize TS decoder: ${err.message}`);
+          setLoading(false);
+        }
       } else {
-        setErrorMsg('HLS playback is not supported in this browser.');
-        setLoading(false);
-      }
-    } else if (isTs && mpegts.isSupported()) {
-      setStats(prev => ({ ...prev, format: 'MPEG-TS (.ts)' }));
-      try {
-        const mpegtsPlayer = mpegts.createPlayer({
-          type: 'mpegts',
-          isLive: true,
-          url: url,
-        }, {
-          enableWorker: true,
-          enableStashBuffer: false,
-          liveBufferLatencyChaser: true,
-        });
- 
-        mpegtsRef.current = mpegtsPlayer;
-        mpegtsPlayer.attachMediaElement(video);
-        mpegtsPlayer.load();
-        
-        mpegtsPlayer.play()
+        // Direct Mp4 / WebM / Generic Playback
+        setStats(prev => ({ ...prev, format: 'Direct Video Source' }));
+        video.src = url;
+        video.load();
+        video.play()
           .then(() => {
             setLoading(false);
           })
           .catch(err => {
             handlePlayError(err);
+            setLoading(false);
           });
- 
-        mpegtsPlayer.on(mpegts.Events.MEDIA_INFO, (mediaInfo) => {
-          updateMpegtsBadges(mediaInfo);
-        });
-
-        mpegtsPlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
-          console.error('MPEG-TS Error:', type, detail, info);
-          
-          // Check if video is actually playing.
-          // Non-fatal media errors (such as decoding warnings or transient buffer append issues)
-          // can occur while the video continues playing smoothly in the background.
-          const video = videoRef.current;
-          if (video && !video.paused && video.currentTime > 0) {
-            console.warn(`Non-fatal MPEG-TS error ignored because video is playing: ${type} - ${detail}`, info);
-            return;
-          }
-
-          setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
-          setLoading(false);
-        });
-      } catch (err) {
-        setErrorMsg(`Failed to initialize TS decoder: ${err.message}`);
-        setLoading(false);
       }
-    } else {
-      // Direct Mp4 / WebM / Generic Playback
-      setStats(prev => ({ ...prev, format: 'Direct Video Source' }));
-      video.src = url;
-      video.load();
-      video.play()
-        .then(() => {
-          setLoading(false);
-        })
-        .catch(err => {
-          handlePlayError(err);
-          setLoading(false);
-        });
-    }
     }, 50); // end setTimeout
   };
 
@@ -357,10 +357,10 @@ export default function Player({ channel }) {
       intervalId = setInterval(() => {
         const video = videoRef.current;
         if (!video) return;
-        
+
         let width = video.videoWidth || 0;
         let height = video.videoHeight || 0;
-        
+
         let currentFps = 0;
         let decodedFrames = 0;
 
@@ -395,7 +395,7 @@ export default function Player({ channel }) {
 
         let width = video.videoWidth || 0;
         let height = video.videoHeight || 0;
-        
+
         let decodedFrames = 0;
 
         if (video.getVideoPlaybackQuality) {
@@ -596,184 +596,187 @@ export default function Player({ channel }) {
               }
             }}
           >
-        <video 
-          ref={videoRef}
-          className={`video-element ${getAspectClass()}`}
-          playsInline
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onPlaying={() => {
-            setIsPlaying(true);
-            setLoading(false);
-            setErrorMsg('');
-          }}
-          onWaiting={() => setLoading(true)}
-          onError={(e) => {
-            console.error("Video element error event:", e);
-            if (!channel || !channel.url) return;
-            const videoErr = videoRef.current?.error;
-            let detail = "Unknown";
-            if (videoErr) {
-              if (videoErr.code === 1) detail = "Aborted";
-              else if (videoErr.code === 2) detail = "Network Error";
-              else if (videoErr.code === 3) detail = "Decode Error";
-              else if (videoErr.code === 4) detail = "Format Not Supported";
-            }
-            setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
-            setIsPlaying(false);
-            setLoading(false);
-          }}
-          onClick={(e) => {
-            // Prevent click from bubbling to the container which would double-fire togglePlay
-            e.stopPropagation();
-            if (isMobile) {
-              resetControlsTimer();
-            } else {
-              togglePlay();
-            }
-          }}
-        />
-
-        {/* Loading Spinner */}
-        {showSpinner && (
-          <div className="spinner-overlay">
-            <RefreshCw className="spin-animation" size={40} style={{ color: 'var(--primary)' }} />
-          </div>
-        )}
-
-        {/* Error Overlay */}
-        {errorMsg && (
-          <div className="error-overlay">
-            <p className="error-title">Playback Error</p>
-            <p className="error-desc">{errorMsg}</p>
-            <button className="btn btn-primary btn-sm" onClick={initPlayer} style={{ marginTop: '12px', padding: '8px 16px', fontSize: '12px' }}>
-              <RefreshCw size={12} /> Retry Playback
-            </button>
-          </div>
-        )}
-
-        {/* Stats overlay */}
-        {showStats && (
-          <div className="stats-box text-digital">
-            <div>Format: <span style={{ color: 'var(--primary)' }}>{stats.format}</span></div>
-            <div>Resolution: <span style={{ color: 'var(--accent)' }}>{stats.resolution}</span></div>
-            <div>Estimated FPS: <span style={{ color: 'var(--accent)' }}>{stats.fps}</span></div>
-            <div>Connection: <span style={{ color: '#34d399' }}>Active</span></div>
-          </div>
-        )}
-
-        {/* Audio codec compatibility warning */}
-        {codecUnsupported && !dismissAudioWarning && isPlaying && (
-          <div className="audio-warning-banner">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-              <div style={{ fontWeight: '700', fontSize: '13px', color: '#ffb703', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>⚠️ No Sound?</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.4', textAlign: 'left' }}>
-                AC3/EAC3 audio is not supported on Chrome or some PC browsers. Try another channel, Safari browser, or the Windows app.
-              </div>
-            </div>
-            <button 
-              className="audio-warning-dismiss" 
-              onClick={(e) => {
-                e.stopPropagation();
-                setDismissAudioWarning(true);
+            <video
+              ref={videoRef}
+              className={`video-element ${getAspectClass()}`}
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onPlaying={() => {
+                setIsPlaying(true);
+                setLoading(false);
+                setErrorMsg('');
               }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+              onWaiting={() => setLoading(true)}
+              onError={(e) => {
+                console.error("Video element error event:", e);
+                if (!channel || !channel.url) return;
+                const videoErr = videoRef.current?.error;
+                let detail = "Unknown";
+                if (videoErr) {
+                  if (videoErr.code === 1) detail = "Aborted";
+                  else if (videoErr.code === 2) detail = "Network Error";
+                  else if (videoErr.code === 3) detail = "Decode Error";
+                  else if (videoErr.code === 4) detail = "Format Not Supported";
+                }
+                setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
+                setIsPlaying(false);
+                setLoading(false);
+              }}
+              onClick={(e) => {
+                // Prevent click from bubbling to the container which would double-fire togglePlay
+                e.stopPropagation();
+                if (isMobile) {
+                  resetControlsTimer();
+                } else {
+                  togglePlay();
+                }
+              }}
+            />
 
-        {/* Custom Overlay Controls */}
-        <div
-          className="player-controls-overlay"
-          style={isMobile ? { opacity: showControls ? 1 : 0, pointerEvents: showControls ? 'auto' : 'none' } : {}}
-        >
-          {/* Top Header info */}
-          <div className="overlay-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {channel.logo && <img src={channel.logo} alt="" style={{ height: '32px', width: '32px', objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }} onError={e => e.target.style.display = 'none'} />}
-              <div>
-                <h4 style={{ color: '#fff', fontSize: '15px', fontWeight: '600' }}>{channel.name}</h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{channel.category}</p>
-              </div>
-            </div>
-            <button className={`control-btn ${showStats ? 'active' : ''}`} onClick={() => setShowStats(!showStats)} title="Toggle Stats">
-              <BarChart2 size={16} />
-            </button>
-          </div>
-
-          {/* Bottom Controls Area (Badges Row + Control Buttons Bar) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-            {/* Metadata Badges */}
-            {isPlaying && (
-              <div className="player-meta-badges">
-                {badges.fps && <span className="meta-badge">{badges.fps}</span>}
-                {badges.resolution && <span className="meta-badge">{badges.resolution}</span>}
-                {badges.videoCodec && <span className="meta-badge">{badges.videoCodec}</span>}
-                {badges.audioChannels && <span className="meta-badge">{badges.audioChannels}</span>}
-                {badges.audioCodec && <span className="meta-badge">{badges.audioCodec}</span>}
+            {/* Loading Spinner */}
+            {showSpinner && (
+              <div className="spinner-overlay">
+                <RefreshCw className="spin-animation" size={40} style={{ color: 'var(--primary)' }} />
               </div>
             )}
 
-            {/* Bottom Control Bar */}
-            <div className="overlay-footer">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                <button className="control-btn play-btn" onClick={togglePlay}>
-                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+            {/* Error Overlay */}
+            {errorMsg && (
+              <div className="error-overlay">
+                <p className="error-title">Playback Error</p>
+                <p className="error-desc">{errorMsg}</p>
+                <button className="btn btn-primary btn-sm" onClick={initPlayer} style={{ marginTop: '12px', padding: '8px 16px', fontSize: '12px' }}>
+                  <RefreshCw size={12} /> Retry Playback
                 </button>
+              </div>
+            )}
 
-                <button className="control-btn" onClick={initPlayer} title="Reload stream">
-                  <RefreshCw size={16} />
-                </button>
+            {/* Stats overlay */}
+            {showStats && (
+              <div className="stats-box text-digital">
+                <div>Format: <span style={{ color: 'var(--primary)' }}>{stats.format}</span></div>
+                <div>Resolution: <span style={{ color: 'var(--accent)' }}>{stats.resolution}</span></div>
+                <div>Estimated FPS: <span style={{ color: 'var(--accent)' }}>{stats.fps}</span></div>
+                <div>Connection: <span style={{ color: '#34d399' }}>Active</span></div>
+              </div>
+            )}
 
-                {/* Volume */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button className="control-btn" onClick={toggleMute} title={isMobile ? 'Mute / Unmute (use hardware buttons for volume)' : 'Mute'} >
-                    {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                  </button>
-                  {/* Desktop only: software volume slider */}
-                  {!isMobile && (
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.05" 
-                      value={isMuted ? 0 : volume} 
-                      onChange={handleVolumeChange} 
-                      className="volume-slider"
-                    />
-                  )}
-                  {/* Mobile: hardware volume hint */}
-                  {isMobile && (
-                    <span className="mobile-vol-hint">Use ± buttons</span>
-                  )}
+            {/* Audio codec compatibility warning */}
+            {codecUnsupported && !dismissAudioWarning && isPlaying && (
+              <div className="audio-warning-banner">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#ffb703', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⚠️ No Sound?</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.4', textAlign: 'left' }}>
+                    AC3/EAC3 audio is not supported on PC browsers.
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#03ffeaff', lineHeight: '1.4', textAlign: 'left' }}>
+                    Try other channels, Safari browser, or our Windows app.
+                  </div>
                 </div>
+                <button
+                  className="audio-warning-dismiss"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDismissAudioWarning(true);
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
-                {/* Live badge */}
-                <span className="badge badge-live text-digital">
-                  ● Live
-                </span>
+            {/* Custom Overlay Controls */}
+            <div
+              className="player-controls-overlay"
+              style={isMobile ? { opacity: showControls ? 1 : 0, pointerEvents: showControls ? 'auto' : 'none' } : {}}
+            >
+              {/* Top Header info */}
+              <div className="overlay-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {channel.logo && <img src={channel.logo} alt="" style={{ height: '32px', width: '32px', objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }} onError={e => e.target.style.display = 'none'} />}
+                  <div>
+                    <h4 style={{ color: '#fff', fontSize: '15px', fontWeight: '600' }}>{channel.name}</h4>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{channel.category}</p>
+                  </div>
+                </div>
+                <button className={`control-btn ${showStats ? 'active' : ''}`} onClick={() => setShowStats(!showStats)} title="Toggle Stats">
+                  <BarChart2 size={16} />
+                </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {document.pictureInPictureEnabled && (
-                  <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
-                    <Shrink size={16} />
-                  </button>
+              {/* Bottom Controls Area (Badges Row + Control Buttons Bar) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                {/* Metadata Badges */}
+                {isPlaying && (
+                  <div className="player-meta-badges">
+                    {badges.fps && <span className="meta-badge">{badges.fps}</span>}
+                    {badges.resolution && <span className="meta-badge">{badges.resolution}</span>}
+                    {badges.videoCodec && <span className="meta-badge">{badges.videoCodec}</span>}
+                    {badges.audioChannels && <span className="meta-badge">{badges.audioChannels}</span>}
+                    {badges.audioCodec && <span className="meta-badge">{badges.audioCodec}</span>}
+                  </div>
                 )}
 
-                <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
-                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                </button>
+                {/* Bottom Control Bar */}
+                <div className="overlay-footer">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                    <button className="control-btn play-btn" onClick={togglePlay}>
+                      {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                    </button>
+
+                    <button className="control-btn" onClick={initPlayer} title="Reload stream">
+                      <RefreshCw size={16} />
+                    </button>
+
+                    {/* Volume */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button className="control-btn" onClick={toggleMute} title={isMobile ? 'Mute / Unmute (use hardware buttons for volume)' : 'Mute'} >
+                        {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                      </button>
+                      {/* Desktop only: software volume slider */}
+                      {!isMobile && (
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={isMuted ? 0 : volume}
+                          onChange={handleVolumeChange}
+                          className="volume-slider"
+                        />
+                      )}
+                      {/* Mobile: hardware volume hint */}
+                      {isMobile && (
+                        <span className="mobile-vol-hint">Use ± buttons</span>
+                      )}
+                    </div>
+
+                    {/* Live badge */}
+                    <span className="badge badge-live text-digital">
+                      ● Live
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {document.pictureInPictureEnabled && (
+                      <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
+                        <Shrink size={16} />
+                      </button>
+                    )}
+
+                    <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
+                      {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  )}
+      )}
 
       <style>{`
         .player-wrapper {
