@@ -1,0 +1,856 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Heart, RefreshCw, AlertCircle, Play, Film, Tv, PlayCircle, Star } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import Player from './components/Player';
+import PlaylistSelector from './components/PlaylistSelector';
+import EPGGuide from './components/EPGGuide';
+import Settings from './components/Settings';
+import { formatXtreamLiveStream, formatXtreamMovie, formatXtreamSeries } from './utils/parsers';
+
+export default function App() {
+  const [playlistInfo, setPlaylistInfo] = useState(null);
+  const [activeTab, setActiveTab] = useState('live'); // live, movies, series, favorites, settings
+  const [channels, setChannels] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [favorites, setFavorites] = useState([]);
+  const [epgData, setEpgData] = useState({});
+
+  // Xtream Codes extra state
+  const [movies, setMovies] = useState([]);
+  const [movieCategories, setMovieCategories] = useState([]);
+  const [selectedMovieCategory, setSelectedMovieCategory] = useState('All');
+  
+  const [series, setSeries] = useState([]);
+  const [seriesCategories, setSeriesCategories] = useState([]);
+  const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All');
+  const [selectedSeriesItem, setSelectedSeriesItem] = useState(null); // Active series for detailed episodes
+  const [seriesEpisodes, setSeriesEpisodes] = useState([]); // Season-grouped episodes for active series
+  
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Proxy state (synced with PlaylistSelector)
+  const [useProxy, setUseProxy] = useState(true);
+  const [proxyUrl, setProxyUrl] = useState('https://api.allorigins.win/raw?url=');
+
+  // Sync favorites from LocalStorage
+  useEffect(() => {
+    const savedFavs = localStorage.getItem('streampulse_favs');
+    if (savedFavs) {
+      try {
+        setFavorites(JSON.parse(savedFavs));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const saveFavorites = (newFavs) => {
+    setFavorites(newFavs);
+    localStorage.setItem('streampulse_favs', JSON.stringify(newFavs));
+  };
+
+  const toggleFavorite = (channelId, e) => {
+    if (e) e.stopPropagation();
+    if (favorites.includes(channelId)) {
+      saveFavorites(favorites.filter(id => id !== channelId));
+    } else {
+      saveFavorites([...favorites, channelId]);
+    }
+  };
+
+  // Sync proxy settings back and forth
+  const handlePlaylistLoaded = (info) => {
+    setPlaylistInfo(info);
+    setUseProxy(info.useProxy ?? true);
+    setProxyUrl(info.proxyUrl ?? 'https://api.allorigins.win/raw?url=');
+    setErrorMsg('');
+
+    if (info.type === 'm3u') {
+      setChannels(info.channels);
+      setCategories(['All', ...info.categories]);
+      setSelectedCategory('All');
+      setActiveTab('live');
+    } else if (info.type === 'xtream') {
+      // Fetch Live categories and streams
+      fetchXtreamLive(info.credentials, info.useProxy, info.proxyUrl);
+    }
+  };
+
+  const fetchXtreamLive = async (creds, proxy, pUrl) => {
+    setLoadingMedia(true);
+    setErrorMsg('');
+    try {
+      const { host, username, password } = creds;
+      
+      // Fetch Live categories
+      const catUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_categories`;
+      const catFetchUrl = proxy ? `${pUrl}${encodeURIComponent(catUrl)}` : catUrl;
+      const catResponse = await fetch(catFetchUrl);
+      if (!catResponse.ok) throw new Error('Live categories load failed');
+      const catsJson = await catResponse.json();
+
+      // Fetch Live Streams
+      const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams`;
+      const streamsFetchUrl = proxy ? `${pUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
+      const streamsResponse = await fetch(streamsFetchUrl);
+      if (!streamsResponse.ok) throw new Error('Live streams load failed');
+      const streamsJson = await streamsResponse.json();
+
+      // Formulate categories
+      const cats = [{ category_id: 'All', category_name: 'All Channels' }];
+      if (Array.isArray(catsJson)) {
+        cats.push(...catsJson);
+      }
+      setCategories(cats.map(c => c.category_name));
+
+      // Parse and format streams
+      const catMap = {};
+      if (Array.isArray(catsJson)) {
+        catsJson.forEach(c => {
+          catMap[c.category_id] = c.category_name;
+        });
+      }
+
+      const formattedChannels = Array.isArray(streamsJson) 
+        ? streamsJson.map(s => {
+            s.category_name = catMap[s.category_id] || 'Uncategorized';
+            return formatXtreamLiveStream(s, host, username, password);
+          })
+        : [];
+
+      setChannels(formattedChannels);
+      setSelectedCategory('All Channels');
+      setActiveTab('live');
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(`Failed to load portal channels: ${err.message}. Try switching CORS proxy or loading via M3U URL.`);
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
+
+  // Fetch Xtream Movies on Tab Switch
+  useEffect(() => {
+    if (activeTab === 'movies' && playlistInfo?.type === 'xtream' && movies.length === 0) {
+      fetchXtreamMovies();
+    } else if (activeTab === 'series' && playlistInfo?.type === 'xtream' && series.length === 0) {
+      fetchXtreamSeries();
+    }
+  }, [activeTab]);
+
+  const fetchXtreamMovies = async () => {
+    setLoadingMedia(true);
+    setErrorMsg('');
+    try {
+      const { host, username, password } = playlistInfo.credentials;
+
+      // Fetch categories
+      const catUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_vod_categories`;
+      const catFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(catUrl)}` : catUrl;
+      const catResponse = await fetch(catFetchUrl);
+      const catsJson = await catResponse.json();
+
+      // Fetch streams
+      const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`;
+      const streamsFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
+      const streamsResponse = await fetch(streamsFetchUrl);
+      const streamsJson = await streamsResponse.json();
+
+      const catMap = {};
+      if (Array.isArray(catsJson)) {
+        catsJson.forEach(c => {
+          catMap[c.category_id] = c.category_name;
+        });
+      }
+
+      const formattedMovies = Array.isArray(streamsJson)
+        ? streamsJson.map(m => {
+            m.category_name = catMap[m.category_id] || 'Movies';
+            return formatXtreamMovie(m, host, username, password);
+          })
+        : [];
+
+      setMovieCategories(['All Movies', ...(Array.isArray(catsJson) ? catsJson.map(c => c.category_name) : [])]);
+      setMovies(formattedMovies);
+      setSelectedMovieCategory('All Movies');
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(`Failed to fetch movies: ${err.message}`);
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
+
+  const fetchXtreamSeries = async () => {
+    setLoadingMedia(true);
+    setErrorMsg('');
+    try {
+      const { host, username, password } = playlistInfo.credentials;
+
+      // Fetch categories
+      const catUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_series_categories`;
+      const catFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(catUrl)}` : catUrl;
+      const catResponse = await fetch(catFetchUrl);
+      const catsJson = await catResponse.json();
+
+      // Fetch streams
+      const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_series`;
+      const streamsFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
+      const streamsResponse = await fetch(streamsFetchUrl);
+      const streamsJson = await streamsResponse.json();
+
+      const catMap = {};
+      if (Array.isArray(catsJson)) {
+        catsJson.forEach(c => {
+          catMap[c.category_id] = c.category_name;
+        });
+      }
+
+      const formattedSeries = Array.isArray(streamsJson)
+        ? streamsJson.map(s => {
+            s.category_name = catMap[s.category_id] || 'TV Series';
+            return formatXtreamSeries(s);
+          })
+        : [];
+
+      setSeriesCategories(['All Series', ...(Array.isArray(catsJson) ? catsJson.map(c => c.category_name) : [])]);
+      setSeries(formattedSeries);
+      setSelectedSeriesCategory('All Series');
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(`Failed to fetch series: ${err.message}`);
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
+
+  const handleSelectSeries = async (seriesItem) => {
+    setSelectedSeriesItem(seriesItem);
+    setLoadingEpisodes(true);
+    setSeriesEpisodes([]);
+    try {
+      const { host, username, password } = playlistInfo.credentials;
+      const url = `${host}/player_api.php?username=${username}&password=${password}&action=get_series_info&series_id=${seriesItem.seriesId}`;
+      const fetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(url)}` : url;
+      
+      const response = await fetch(fetchUrl);
+      const json = await response.json();
+      
+      // Episodes are structured as an object of seasons: { "1": [ { id, title, container_extension }, ... ] }
+      if (json && json.episodes) {
+        setSeriesEpisodes(json.episodes);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingEpisodes(false);
+    }
+  };
+
+  const playEpisode = (episode, seriesName) => {
+    const { host, username, password } = playlistInfo.credentials;
+    const ext = episode.container_extension || 'mp4';
+    const streamUrl = `${host}/series/${username}/${password}/${episode.id}.${ext}`;
+
+    setSelectedChannel({
+      uniqueId: `xtream-episode-${episode.id}`,
+      id: `xtream-episode-${episode.id}`,
+      name: `${seriesName} - S${episode.season}E${episode.episode_num}: ${episode.title}`,
+      logo: selectedSeriesItem.logo,
+      category: selectedSeriesItem.category,
+      url: streamUrl,
+      type: 'video'
+    });
+  };
+
+  const handleLogout = () => {
+    setPlaylistInfo(null);
+    setChannels([]);
+    setMovies([]);
+    setSeries([]);
+    setSelectedChannel(null);
+    setSelectedSeriesItem(null);
+  };
+
+  // Get active items to render
+  const getFilteredChannels = () => {
+    let list = [];
+    if (activeTab === 'live') {
+      list = channels;
+      if (selectedCategory !== 'All' && selectedCategory !== 'All Channels') {
+        list = list.filter(ch => ch.category === selectedCategory);
+      }
+    } else if (activeTab === 'favorites') {
+      // Merge live channels, movies and series
+      list = [...channels, ...movies].filter(ch => favorites.includes(ch.uniqueId));
+    }
+    
+    if (searchQuery) {
+      list = list.filter(ch => ch.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return list;
+  };
+
+  const getFilteredMovies = () => {
+    let list = movies;
+    if (selectedMovieCategory !== 'All Movies') {
+      list = list.filter(m => m.category === selectedMovieCategory);
+    }
+    if (searchQuery) {
+      list = list.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return list;
+  };
+
+  const getFilteredSeries = () => {
+    let list = series;
+    if (selectedSeriesCategory !== 'All Series') {
+      list = list.filter(s => s.category === selectedSeriesCategory);
+    }
+    if (searchQuery) {
+      list = list.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return list;
+  };
+
+  if (!playlistInfo) {
+    return <PlaylistSelector onPlaylistLoaded={handlePlaylistLoaded} onError={(err) => setErrorMsg(err)} />;
+  }
+
+  return (
+    <div className="app-container">
+      {/* Sidebar */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setSearchQuery('');
+          setSelectedSeriesItem(null);
+        }} 
+        playlistInfo={playlistInfo} 
+        onLogout={handleLogout}
+        favoritesCount={favorites.length}
+      />
+
+      {/* Main dashboard content */}
+      <main className="main-content">
+        {activeTab === 'settings' ? (
+          <Settings 
+            playlistInfo={playlistInfo}
+            onClearPlaylist={handleLogout}
+            onClearFavorites={() => saveFavorites([])}
+            useProxy={useProxy}
+            setUseProxy={setUseProxy}
+            proxyUrl={proxyUrl}
+            setProxyUrl={setProxyUrl}
+          />
+        ) : (
+          <div className="dashboard-grid">
+            
+            {/* Left side: player and EPG */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'hidden' }}>
+              <div style={{ flex: 1, minHeight: '320px', maxHeight: '550px' }}>
+                <Player channel={selectedChannel} />
+              </div>
+              <div style={{ flex: '0 0 280px' }}>
+                <EPGGuide 
+                  channel={selectedChannel} 
+                  epgData={epgData} 
+                  onEpgLoaded={(data) => setEpgData(data)} 
+                  useProxy={useProxy} 
+                  proxyUrl={proxyUrl}
+                />
+              </div>
+            </div>
+
+            {/* Right side: Categories & Lists */}
+            <div className="glass-panel main-list-panel">
+              {/* Search Header */}
+              <div className="list-search-bar">
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} className="search-icon" />
+                  <input 
+                    type="text" 
+                    placeholder={`Search ${activeTab}...`} 
+                    className="input-field" 
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '36px', height: '40px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Category selector */}
+              {activeTab === 'live' && (
+                <div className="category-scroller">
+                  {categories.map((cat, idx) => (
+                    <button 
+                      key={idx}
+                      className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'movies' && (
+                <div className="category-scroller">
+                  {movieCategories.map((cat, idx) => (
+                    <button 
+                      key={idx}
+                      className={`category-chip ${selectedMovieCategory === cat ? 'active' : ''}`}
+                      onClick={() => setSelectedMovieCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'series' && !selectedSeriesItem && (
+                <div className="category-scroller">
+                  {seriesCategories.map((cat, idx) => (
+                    <button 
+                      key={idx}
+                      className={`category-chip ${selectedSeriesCategory === cat ? 'active' : ''}`}
+                      onClick={() => setSelectedSeriesCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Primary list renderer */}
+              <div className="list-items-container">
+                {loadingMedia ? (
+                  <div className="list-loading-state">
+                    <RefreshCw className="spin-animation" size={24} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
+                    <p>Updating catalogs...</p>
+                  </div>
+                ) : errorMsg ? (
+                  <div className="list-error-state">
+                    <AlertCircle size={24} style={{ color: '#ef4444', marginBottom: '8px' }} />
+                    <p>{errorMsg}</p>
+                  </div>
+                ) : activeTab === 'live' || activeTab === 'favorites' ? (
+                  /* Live TV or Favorites List */
+                  <div className="channels-list">
+                    {getFilteredChannels().map((ch) => {
+                      const isActive = selectedChannel?.uniqueId === ch.uniqueId;
+                      const isFav = favorites.includes(ch.uniqueId);
+                      return (
+                        <div 
+                          key={ch.uniqueId} 
+                          className={`channel-item-card ${isActive ? 'active' : ''}`}
+                          onClick={() => setSelectedChannel(ch)}
+                        >
+                          <div className="channel-logo-container">
+                            {ch.logo ? (
+                              <img src={ch.logo} alt="" onError={(e) => e.target.style.display = 'none'} />
+                            ) : (
+                              <Tv size={18} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                          </div>
+                          
+                          <div className="channel-details">
+                            <div className="channel-name-txt">{ch.name}</div>
+                            <div className="channel-category-txt">{ch.category}</div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(ch.uniqueId, e)}>
+                              <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
+                            </button>
+                            {isActive && <Play size={12} fill="var(--primary)" style={{ color: 'var(--primary)' }} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {getFilteredChannels().length === 0 && (
+                      <div className="list-empty-state">No matching streams found</div>
+                    )}
+                  </div>
+                ) : activeTab === 'movies' ? (
+                  /* VOD Movie Grid */
+                  <div className="vod-grid">
+                    {getFilteredMovies().map((mv) => {
+                      const isActive = selectedChannel?.uniqueId === mv.uniqueId;
+                      const isFav = favorites.includes(mv.uniqueId);
+                      return (
+                        <div key={mv.uniqueId} className="vod-card" onClick={() => setSelectedChannel(mv)}>
+                          <div className="vod-thumbnail">
+                            {mv.logo ? (
+                              <img src={mv.logo} alt={mv.name} loading="lazy" />
+                            ) : (
+                              <Film size={32} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                            <div className="vod-overlay-play">
+                              <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
+                            </div>
+                            {mv.rating && <span className="vod-badge-rating">{mv.rating}</span>}
+                          </div>
+                          <div className="vod-title" title={mv.name}>{mv.name}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{mv.year || 'VOD'}</span>
+                            <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(mv.uniqueId, e)}>
+                              <Star size={11} fill={isFav ? 'currentColor' : 'none'} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {getFilteredMovies().length === 0 && (
+                      <div className="list-empty-state">No movies found</div>
+                    )}
+                  </div>
+                ) : activeTab === 'series' ? (
+                  /* Series Browser and Episode Selector */
+                  selectedSeriesItem ? (
+                    <div className="series-episodes-view">
+                      <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSeriesItem(null)} style={{ marginBottom: '16px', padding: '6px 12px', fontSize: '11px' }}>
+                        ← Back to Series List
+                      </button>
+
+                      <div className="series-details-header">
+                        {selectedSeriesItem.logo && <img src={selectedSeriesItem.logo} alt="" style={{ height: '70px', borderRadius: '4px', objectFit: 'cover' }} />}
+                        <div>
+                          <h3 style={{ fontSize: '15px', color: '#fff' }}>{selectedSeriesItem.name}</h3>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedSeriesItem.category}</p>
+                          {selectedSeriesItem.rating && <span style={{ fontSize: '10px', color: 'var(--accent)' }}>★ {selectedSeriesItem.rating}</span>}
+                        </div>
+                      </div>
+
+                      {loadingEpisodes ? (
+                        <div style={{ textAlign: 'center', padding: '24px' }}>
+                          <RefreshCw className="spin-animation" size={20} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Fetching season guides...</p>
+                        </div>
+                      ) : (
+                        <div className="seasons-container">
+                          {Object.keys(seriesEpisodes).map((seasonNum) => (
+                            <div key={seasonNum} style={{ marginBottom: '16px' }}>
+                              <h4 style={{ fontSize: '12px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '8px', fontWeight: '700' }}>
+                                Season {seasonNum}
+                              </h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {seriesEpisodes[seasonNum].map((ep) => (
+                                  <div 
+                                    key={ep.id} 
+                                    className="episode-item"
+                                    onClick={() => playEpisode(ep, selectedSeriesItem.name)}
+                                  >
+                                    <span style={{ fontWeight: '700', color: 'var(--primary)', minWidth: '36px' }}>E{ep.episode_num}</span>
+                                    <span style={{ flex: 1, color: '#fff', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</span>
+                                    <Play size={10} style={{ color: 'var(--text-dark)' }} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                          {Object.keys(seriesEpisodes).length === 0 && (
+                            <div className="list-empty-state">No episodes available</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="vod-grid">
+                      {getFilteredSeries().map((sr) => (
+                        <div key={sr.uniqueId} className="vod-card" onClick={() => handleSelectSeries(sr)}>
+                          <div className="vod-thumbnail">
+                            {sr.logo ? (
+                              <img src={sr.logo} alt={sr.name} loading="lazy" />
+                            ) : (
+                              <Film size={32} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                            <div className="vod-overlay-play">
+                              <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
+                            </div>
+                            {sr.rating && <span className="vod-badge-rating">{sr.rating}</span>}
+                          </div>
+                          <div className="vod-title" title={sr.name}>{sr.name}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginTop: '4px' }}>
+                            {sr.releaseDate || 'Series'}
+                          </div>
+                        </div>
+                      ))}
+                      {getFilteredSeries().length === 0 && (
+                        <div className="list-empty-state">No series found</div>
+                      )}
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </div>
+
+          </div>
+        )}
+      </main>
+
+      <style>{`
+        .main-list-panel {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background: rgba(10, 12, 22, 0.4);
+        }
+        
+        .list-search-bar {
+          padding: 16px;
+          border-bottom: 1px solid var(--border-color);
+        }
+        .search-icon {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-dark);
+          pointer-events: none;
+        }
+
+        .category-scroller {
+          display: flex;
+          gap: 8px;
+          padding: 12px 16px;
+          overflow-x: auto;
+          white-space: nowrap;
+          border-bottom: 1px solid var(--border-color);
+          flex-shrink: 0;
+        }
+        .category-scroller::-webkit-scrollbar {
+          height: 3px;
+        }
+        
+        .category-chip {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--border-color);
+          color: var(--text-muted);
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .category-chip:hover {
+          background: rgba(255,255,255,0.08);
+          color: var(--text-main);
+        }
+        .category-chip.active {
+          background: var(--primary-glow);
+          border-color: var(--primary);
+          color: var(--primary);
+          box-shadow: 0 0 6px var(--primary-glow);
+        }
+
+        .list-items-container {
+          flex: 1;
+          overflow-y: auto;
+          padding: 16px;
+        }
+        
+        .list-loading-state, .list-error-state, .list-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          color: var(--text-muted);
+          font-size: 13px;
+          text-align: center;
+          padding: 40px;
+        }
+        
+        .channels-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .channel-item-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.01);
+          border: 1px solid var(--border-color);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .channel-item-card:hover {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.15);
+        }
+        .channel-item-card.active {
+          background: var(--primary-glow);
+          border-color: var(--primary);
+          box-shadow: 0 0 10px var(--primary-glow);
+        }
+        
+        .channel-logo-container {
+          width: 36px;
+          height: 36px;
+          border-radius: 4px;
+          background: rgba(0,0,0,0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .channel-logo-container img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+        
+        .channel-details {
+          flex: 1;
+          overflow: hidden;
+        }
+        .channel-name-txt {
+          font-size: 13px;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .channel-item-card.active .channel-name-txt {
+          color: var(--primary);
+        }
+        .channel-category-txt {
+          font-size: 11px;
+          color: var(--text-dark);
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .fav-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-dark);
+          cursor: pointer;
+          padding: 4px;
+          transition: all 0.2s ease;
+        }
+        .fav-btn:hover {
+          color: #f59e0b;
+        }
+        .fav-btn.active {
+          color: #f59e0b;
+        }
+
+        /* VOD & Series Grid */
+        .vod-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+          gap: 12px;
+        }
+        .vod-card {
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .vod-card:hover {
+          transform: translateY(-2px);
+        }
+        .vod-thumbnail {
+          aspect-ratio: 2/3;
+          border-radius: 6px;
+          background: rgba(0,0,0,0.3);
+          border: 1px solid var(--border-color);
+          overflow: hidden;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .vod-thumbnail img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .vod-overlay-play {
+          position: absolute;
+          inset: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        .vod-card:hover .vod-overlay-play {
+          opacity: 1;
+        }
+        .vod-badge-rating {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          background: rgba(0,0,0,0.8);
+          color: var(--accent);
+          font-size: 8px;
+          font-weight: 700;
+          padding: 2px 4px;
+          border-radius: 4px;
+          border: 1px solid rgba(5,255,197,0.3);
+        }
+        
+        .vod-title {
+          font-size: 11px;
+          font-weight: 600;
+          color: #fff;
+          margin-top: 6px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Series view details */
+        .series-details-header {
+          display: flex;
+          gap: 16px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 16px;
+        }
+        
+        .seasons-container {
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        
+        .episode-item {
+          display: flex;
+          align-items: center;
+          padding: 8px 12px;
+          background: rgba(255,255,255,0.01);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 12px;
+        }
+        .episode-item:hover {
+          background: rgba(255,255,255,0.03);
+          border-color: var(--primary);
+        }
+      `}</style>
+    </div>
+  );
+}
