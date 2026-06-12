@@ -134,6 +134,7 @@ export default function Player({ channel }) {
       const a = level.audioCodec.toLowerCase();
       if (a.includes('mp4a')) audioCodec = 'aac';
       else if (a.includes('ac-3') || a.includes('ac3')) audioCodec = 'ac3';
+      else if (a.includes('ec-3') || a.includes('eac3')) audioCodec = 'eac3';
     }
 
     setBadges(prev => ({
@@ -159,6 +160,7 @@ export default function Player({ channel }) {
       const a = mediaInfo.audioCodec.toLowerCase();
       if (a.includes('aac')) audioCodec = 'aac';
       else if (a.includes('ac3') || a.includes('ac-3')) audioCodec = 'ac3';
+      else if (a.includes('ec-3') || a.includes('eac3')) audioCodec = 'eac3';
       else if (a.includes('mp3')) audioCodec = 'mp3';
       else audioCodec = a;
     }
