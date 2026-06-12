@@ -29,6 +29,9 @@ apt-get update
 echo "--> Installing Nginx..."
 apt-get install nginx -y
 
+echo "--> Installing Node.js..."
+apt-get install nodejs -y
+
 echo "--> Creating web directories..."
 mkdir -p /var/www/super-iptv/dist
 
@@ -44,6 +47,16 @@ server {
 
     root /var/www/super-iptv/dist;
     index index.html;
+
+    # Proxy API requests to Node.js backend
+    location /api {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
 
     # Handle single-page React app routing
     location / {
@@ -71,6 +84,29 @@ fi
 if [ ! -f /etc/nginx/sites-enabled/super-iptv ]; then
   ln -s /etc/nginx/sites-available/super-iptv /etc/nginx/sites-enabled/
 fi
+
+echo "--> Configuring Systemd Service for API..."
+cat <<EOF > /etc/systemd/system/super-iptv-api.service
+[Unit]
+Description=Super IPTV API Service
+After=network.target
+
+[Service]
+Type=simple
+User=$REAL_USER
+WorkingDirectory=/var/www/super-iptv
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "--> Enabling and starting IPTV API service..."
+systemctl daemon-reload
+systemctl enable super-iptv-api
+systemctl restart super-iptv-api || systemctl start super-iptv-api
 
 echo "--> Testing and restarting Nginx..."
 nginx -t

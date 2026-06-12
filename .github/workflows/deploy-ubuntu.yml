@@ -34,3 +34,24 @@ jobs:
           target: "/var/www/super-iptv/dist"
           strip_components: 1
           overwrite: true
+
+      - name: Deploy Backend Server to Ubuntu Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          source: "server.js"
+          target: "/var/www/super-iptv"
+          overwrite: true
+
+      - name: Restart API Backend Service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            sudo systemctl restart super-iptv-api
