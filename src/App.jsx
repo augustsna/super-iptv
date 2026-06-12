@@ -79,10 +79,10 @@ export default function App() {
     localStorage.setItem('streampulse_load_step', String(num));
   };
 
-  const selectValue = isCustomLoad 
-    ? 'custom' 
-    : (loadStep === 1000000 
-      ? 'all' 
+  const selectValue = isCustomLoad
+    ? 'custom'
+    : (loadStep === 1000000
+      ? 'all'
       : ([50, 100, 200, 500, 1000].includes(loadStep) ? String(loadStep) : 'custom'));
 
   // Reset display limit when filtering changes
@@ -534,8 +534,8 @@ export default function App() {
                     })}
                     {getFilteredChannels().length > displayLimit && (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto' }}>
-                        <button 
-                          className="btn btn-secondary" 
+                        <button
+                          className="btn btn-secondary"
                           onClick={() => setDisplayLimit(prev => prev + loadStep)}
                           style={{ display: 'block', width: '200px' }}
                         >
@@ -543,15 +543,15 @@ export default function App() {
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
                           <span>Load amount:</span>
-                          <select 
-                            value={selectValue} 
-                            onChange={e => handleLoadStepChange(e.target.value)} 
-                            style={{ 
-                              background: 'rgba(255,255,255,0.03)', 
-                              border: '1px solid var(--border-color)', 
-                              color: 'var(--text-muted)', 
-                              borderRadius: '4px', 
-                              padding: '4px 8px', 
+                          <select
+                            value={selectValue}
+                            onChange={e => handleLoadStepChange(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-muted)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
                               cursor: 'pointer',
                               outline: 'none',
                               fontSize: '11px'
@@ -571,12 +571,12 @@ export default function App() {
                               min="1"
                               value={customLoadValue}
                               onChange={e => handleCustomValueChange(e.target.value)}
-                              style={{ 
-                                background: 'rgba(255,255,255,0.03)', 
-                                border: '1px solid var(--border-color)', 
-                                color: '#fff', 
-                                borderRadius: '4px', 
-                                padding: '4px 8px', 
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: '#fff',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
                                 outline: 'none',
                                 fontSize: '11px',
                                 width: '70px'
@@ -622,8 +622,8 @@ export default function App() {
                     })}
                     {getFilteredMovies().length > displayLimit && (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
-                        <button 
-                          className="btn btn-secondary" 
+                        <button
+                          className="btn btn-secondary"
                           onClick={() => setDisplayLimit(prev => prev + loadStep)}
                           style={{ display: 'block', width: '200px' }}
                         >
@@ -631,15 +631,15 @@ export default function App() {
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
                           <span>Load amount:</span>
-                          <select 
-                            value={selectValue} 
-                            onChange={e => handleLoadStepChange(e.target.value)} 
-                            style={{ 
-                              background: 'rgba(255,255,255,0.03)', 
-                              border: '1px solid var(--border-color)', 
-                              color: 'var(--text-muted)', 
-                              borderRadius: '4px', 
-                              padding: '4px 8px', 
+                          <select
+                            value={selectValue}
+                            onChange={e => handleLoadStepChange(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-muted)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
                               cursor: 'pointer',
                               outline: 'none',
                               fontSize: '11px'
@@ -659,12 +659,12 @@ export default function App() {
                               min="1"
                               value={customLoadValue}
                               onChange={e => handleCustomValueChange(e.target.value)}
-                              style={{ 
-                                background: 'rgba(255,255,255,0.03)', 
-                                border: '1px solid var(--border-color)', 
-                                color: '#fff', 
-                                borderRadius: '4px', 
-                                padding: '4px 8px', 
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: '#fff',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
                                 outline: 'none',
                                 fontSize: '11px',
                                 width: '70px'
@@ -752,8 +752,8 @@ export default function App() {
                       ))}
                       {getFilteredSeries().length > displayLimit && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
-                          <button 
-                            className="btn btn-secondary" 
+                          <button
+                            className="btn btn-secondary"
                             onClick={() => setDisplayLimit(prev => prev + loadStep)}
                             style={{ display: 'block', width: '200px' }}
                           >
@@ -761,15 +761,15 @@ export default function App() {
                           </button>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
                             <span>Load amount:</span>
-                            <select 
-                              value={selectValue} 
-                              onChange={e => handleLoadStepChange(e.target.value)} 
-                              style={{ 
-                                background: 'rgba(255,255,255,0.03)', 
-                                border: '1px solid var(--border-color)', 
-                                color: 'var(--text-muted)', 
-                                borderRadius: '4px', 
-                                padding: '4px 8px', 
+                            <select
+                              value={selectValue}
+                              onChange={e => handleLoadStepChange(e.target.value)}
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-muted)',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
                                 cursor: 'pointer',
                                 outline: 'none',
                                 fontSize: '11px'
@@ -789,12 +789,12 @@ export default function App() {
                                 min="1"
                                 value={customLoadValue}
                                 onChange={e => handleCustomValueChange(e.target.value)}
-                                style={{ 
-                                  background: 'rgba(255,255,255,0.03)', 
-                                  border: '1px solid var(--border-color)', 
-                                  color: '#fff', 
-                                  borderRadius: '4px', 
-                                  padding: '4px 8px', 
+                                style={{
+                                  background: 'rgba(255,255,255,0.03)',
+                                  border: '1px solid var(--border-color)',
+                                  color: '#fff',
+                                  borderRadius: '4px',
+                                  padding: '4px 8px',
                                   outline: 'none',
                                   fontSize: '11px',
                                   width: '70px'
@@ -820,7 +820,7 @@ export default function App() {
 
       {/* Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
-        <button 
+        <button
           className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
           onClick={() => {
             setActiveTab('live');
@@ -834,7 +834,7 @@ export default function App() {
 
         {playlistInfo?.type === 'xtream' && (
           <>
-            <button 
+            <button
               className={`mobile-nav-item ${activeTab === 'movies' ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab('movies');
@@ -846,7 +846,7 @@ export default function App() {
               <span>Movies</span>
             </button>
 
-            <button 
+            <button
               className={`mobile-nav-item ${activeTab === 'series' ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab('series');
@@ -860,7 +860,7 @@ export default function App() {
           </>
         )}
 
-        <button 
+        <button
           className={`mobile-nav-item ${activeTab === 'favorites' ? 'active' : ''}`}
           onClick={() => {
             setActiveTab('favorites');
@@ -877,7 +877,7 @@ export default function App() {
           <span>Favorites</span>
         </button>
 
-        <button 
+        <button
           className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => {
             setActiveTab('settings');
@@ -913,10 +913,10 @@ export default function App() {
 
         @media (min-width: 1025px) {
           .player-wrapper-container {
-            max-height: calc(100vh - 64px);
+            max-height: 90vh;
           }
           .player-wrapper-container.placeholder {
-            max-height: calc(100vh - 64px);
+            max-height: 90vh;
           }
         }
 
