@@ -51,7 +51,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
     try {
       const targetUrl = `${xtreamUrl}/player_api.php?username=${username}&password=${password}`;
-      
+
       let data;
       let usedProxy = false;
 
@@ -74,7 +74,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           throw new Error('Connection failed. Server might be offline or proxy is blocked.');
         }
       }
-      
+
       if (data.user_info && data.user_info.status === 'Active') {
         onPlaylistLoaded({
           type: 'xtream',
@@ -139,7 +139,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
       if (response.ok) {
         setAdminSuccess('Configuration saved successfully!');
-        
+
         // Update form prefill
         setXtreamUrl(tempXtreamUrl);
         setUsername(tempUsername);
@@ -165,7 +165,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
   return (
     <div className="playlist-selector-container">
       <div className="glass-panel" style={{ padding: '40px', maxWidth: '520px', width: '100%', margin: 'auto' }}>
-        
+
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
             display: 'inline-flex',
@@ -186,8 +186,8 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         {adminMode === 'auth' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setAdminMode('none')}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
               >
@@ -216,14 +216,14 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                   <label className="input-label">Admin Password</label>
                   <div style={{ position: 'relative' }}>
                     <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark)' }} />
-                    <input 
-                      type="password" 
-                      className="input-field" 
-                      value={adminPassword} 
-                      onChange={e => setAdminPassword(e.target.value)} 
-                      placeholder="Enter admin password" 
+                    <input
+                      type="password"
+                      className="input-field"
+                      value={adminPassword}
+                      onChange={e => setAdminPassword(e.target.value)}
+                      placeholder="Enter admin password"
                       style={{ paddingLeft: '36px' }}
-                      required 
+                      required
                     />
                   </div>
                 </div>
@@ -239,8 +239,8 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         {adminMode === 'config' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setAdminMode('none');
                   setAdminPassword('');
@@ -277,49 +277,49 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
               <form onSubmit={handleAdminSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
                   <label className="input-label">Default Server Host URL</label>
-                  <input 
-                    type="url" 
-                    className="input-field" 
-                    value={tempXtreamUrl} 
-                    onChange={e => setTempXtreamUrl(e.target.value)} 
-                    placeholder="http://example.com:8080" 
-                    required 
+                  <input
+                    type="url"
+                    className="input-field"
+                    value={tempXtreamUrl}
+                    onChange={e => setTempXtreamUrl(e.target.value)}
+                    placeholder="http://example.com:8080"
+                    required
                   />
                 </div>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label className="input-label">Default Username</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={tempUsername} 
-                      onChange={e => setTempUsername(e.target.value)} 
-                      placeholder="Username" 
-                      required 
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={tempUsername}
+                      onChange={e => setTempUsername(e.target.value)}
+                      placeholder="Username"
+                      required
                     />
                   </div>
                   <div>
                     <label className="input-label">Default Password</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={tempPassword} 
-                      onChange={e => setTempPassword(e.target.value)} 
-                      placeholder="Password" 
-                      required 
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={tempPassword}
+                      onChange={e => setTempPassword(e.target.value)}
+                      placeholder="Password"
+                      required
                     />
                   </div>
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '8px', paddingTop: '16px' }}>
                   <label className="input-label">Change Admin Password (Optional)</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
-                    value={newAdminPassword} 
-                    onChange={e => setNewAdminPassword(e.target.value)} 
-                    placeholder="Enter new admin password" 
+                  <input
+                    type="password"
+                    className="input-field"
+                    value={newAdminPassword}
+                    onChange={e => setNewAdminPassword(e.target.value)}
+                    placeholder="Enter new admin password"
                   />
                 </div>
 
@@ -351,54 +351,54 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                 <form onSubmit={handleXtreamLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className="input-label">Server Host URL</label>
-                    <input 
-                      type="url" 
-                      className="input-field" 
-                      value={xtreamUrl} 
-                      onChange={e => setXtreamUrl(e.target.value)} 
-                      placeholder="http://example.com:8080" 
-                      required 
+                    <input
+                      type="url"
+                      className="input-field"
+                      value={xtreamUrl}
+                      onChange={e => setXtreamUrl(e.target.value)}
+                      placeholder="http://example.com:8080"
+                      required
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
                       <label className="input-label">Username</label>
-                      <input 
-                        type="text" 
-                        className="input-field" 
-                        value={username} 
-                        onChange={e => setUsername(e.target.value)} 
-                        placeholder="Username" 
-                        required 
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                        placeholder="Username"
+                        required
                       />
                     </div>
                     <div>
                       <label className="input-label">Password</label>
-                      <input 
-                        type="text" 
-                        className="input-field" 
-                        value={password} 
-                        onChange={e => setPassword(e.target.value)} 
-                        placeholder="Password" 
-                        required 
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Password"
+                        required
                       />
                     </div>
                   </div>
-                  
+
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
-                    Load Stream Portal
+                    Log in
                   </button>
                 </form>
 
                 {/* Server Admin Panel Link */}
                 <div style={{ textAlign: 'center', marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => {
                       setAdminMode('auth');
                       setAdminPassword('');
                       setAdminError('');
-                    }} 
+                    }}
                     className="admin-link-btn"
                   >
                     🔐 Server Admin Panel

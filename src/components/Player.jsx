@@ -627,69 +627,70 @@ export default function Player({ channel }) {
             </button>
           </div>
 
-          {/* Bottom Control Bar */}
-          <div className="overlay-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-              <button className="control-btn play-btn" onClick={togglePlay}>
-                {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-              </button>
+          {/* Bottom Controls Area (Badges Row + Control Buttons Bar) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+            {/* Metadata Badges */}
+            {isPlaying && (
+              <div className="player-meta-badges">
+                {badges.fps && <span className="meta-badge">{badges.fps}</span>}
+                {badges.resolution && <span className="meta-badge">{badges.resolution}</span>}
+                {badges.videoCodec && <span className="meta-badge">{badges.videoCodec}</span>}
+                {badges.audioChannels && <span className="meta-badge">{badges.audioChannels}</span>}
+                {badges.audioCodec && <span className="meta-badge">{badges.audioCodec}</span>}
+              </div>
+            )}
 
-              <button className="control-btn" onClick={initPlayer} title="Reload stream">
-                <RefreshCw size={16} />
-              </button>
-
-              {/* Volume */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button className="control-btn" onClick={toggleMute} title={isMobile ? 'Mute / Unmute (use hardware buttons for volume)' : 'Mute'} >
-                  {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            {/* Bottom Control Bar */}
+            <div className="overlay-footer">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                <button className="control-btn play-btn" onClick={togglePlay}>
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
                 </button>
-                {/* Desktop only: software volume slider */}
-                {!isMobile && (
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.05" 
-                    value={isMuted ? 0 : volume} 
-                    onChange={handleVolumeChange} 
-                    className="volume-slider"
-                  />
-                )}
-                {/* Mobile: hardware volume hint */}
-                {isMobile && (
-                  <span className="mobile-vol-hint">Use ± buttons</span>
-                )}
+
+                <button className="control-btn" onClick={initPlayer} title="Reload stream">
+                  <RefreshCw size={16} />
+                </button>
+
+                {/* Volume */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button className="control-btn" onClick={toggleMute} title={isMobile ? 'Mute / Unmute (use hardware buttons for volume)' : 'Mute'} >
+                    {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  </button>
+                  {/* Desktop only: software volume slider */}
+                  {!isMobile && (
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.05" 
+                      value={isMuted ? 0 : volume} 
+                      onChange={handleVolumeChange} 
+                      className="volume-slider"
+                    />
+                  )}
+                  {/* Mobile: hardware volume hint */}
+                  {isMobile && (
+                    <span className="mobile-vol-hint">Use ± buttons</span>
+                  )}
+                </div>
+
+                {/* Live badge */}
+                <span className="badge badge-live text-digital">
+                  ● Live
+                </span>
               </div>
 
-              {/* Live badge */}
-              <span className="badge badge-live text-digital">
-                ● Live
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {document.pictureInPictureEnabled && (
+                  <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
+                    <Shrink size={16} />
+                  </button>
+                )}
 
-              {/* Metadata Badges */}
-              {isPlaying && (
-                <div className="player-meta-badges">
-                  {badges.fps && <span className="meta-badge">{badges.fps}</span>}
-                  {badges.resolution && <span className="meta-badge">{badges.resolution}</span>}
-                  {badges.videoCodec && <span className="meta-badge">{badges.videoCodec}</span>}
-                  {badges.audioChannels && <span className="meta-badge">{badges.audioChannels}</span>}
-                  {badges.audioCodec && <span className="meta-badge">{badges.audioCodec}</span>}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-
-              {document.pictureInPictureEnabled && (
-                <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
-                  <Shrink size={16} />
+                <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                 </button>
-              )}
-
-              <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
-                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-              </button>
+              </div>
             </div>
           </div>
         </div>
