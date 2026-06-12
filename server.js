@@ -2,7 +2,6 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
-import { spawn } from 'child_process';
 
 const PORT = process.env.PORT || 5000;
 const __filename = url.fileURLToPath(import.meta.url);
@@ -70,68 +69,6 @@ const server = http.createServer((req, res) => {
 
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
-
-  // GET /api/stream
-  if (pathname === '/api/stream' && req.method === 'GET') {
-    const streamUrl = parsedUrl.query.url;
-    if (!streamUrl) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Missing stream URL' }));
-      return;
-    }
-
-    console.log(`Starting transcoding proxy for: ${streamUrl}`);
-
-    // Set headers for chunked transfer and MPEG-TS content type
-    res.writeHead(200, {
-      'Content-Type': 'video/mp2t',
-      'Connection': 'keep-alive',
-      'Transfer-Encoding': 'chunked',
-      'Access-Control-Allow-Origin': '*'
-    });
-
-    // Spawn ffmpeg to copy video and transcode audio to stereo AAC
-    const ffmpegArgs = [
-      '-re',
-      '-i', streamUrl,
-      '-c:v', 'copy',
-      '-c:a', 'aac',
-      '-b:a', '192k',
-      '-ac', '2',
-      '-f', 'mpegts',
-      'pipe:1'
-    ];
-
-    const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
-
-    ffmpegProcess.stdout.pipe(res);
-
-    ffmpegProcess.stderr.on('data', (data) => {
-      const logMsg = data.toString();
-      if (logMsg.toLowerCase().includes('error')) {
-        console.error(`FFmpeg stderr: ${logMsg.trim()}`);
-      }
-    });
-
-    ffmpegProcess.on('error', (err) => {
-      console.error('Failed to start FFmpeg process:', err);
-      if (err.code === 'ENOENT') {
-        if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            error: 'FFmpeg is not installed or not found in system PATH. Please install FFmpeg on the server.'
-          }));
-        }
-      }
-    });
-
-    req.on('close', () => {
-      console.log('Client disconnected from transcoding proxy, stopping FFmpeg...');
-      ffmpegProcess.kill('SIGKILL');
-    });
-
-    return;
-  }
 
   // GET /api/config
   if (pathname === '/api/config' && req.method === 'GET') {
