@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, Trash2, Radio, Clock, Wifi } from 'lucide-react';
+import { Sliders, Trash2, Radio, Clock, Wifi, Layers } from 'lucide-react';
 
 function getExpiryInfo(expDate) {
   if (!expDate || expDate === '0') return { label: 'Unlimited', remaining: null, color: 'var(--accent)' };
@@ -22,7 +22,12 @@ function getExpiryInfo(expDate) {
 export default function Settings({ 
   onClearPlaylist, 
   onClearFavorites,
-  playlistInfo
+  playlistInfo,
+  loadStep,
+  handleLoadStepChange,
+  customLoadValue,
+  handleCustomValueChange,
+  selectValue
 }) {
   const expiry = getExpiryInfo(playlistInfo?.userInfo?.exp_date);
   const hostDisplay = playlistInfo?.type === 'xtream'
@@ -89,6 +94,51 @@ export default function Settings({
             </div>
           </section>
         )}
+
+        {/* BATCH LOADING LIMITS */}
+        <section className="settings-section">
+          <div className="section-title">
+            <Layers size={18} />
+            <span>Stream Loading &amp; Batching</span>
+          </div>
+          <div className="section-body">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Load Limit / Batch Size</span>
+                <select
+                  value={selectValue}
+                  onChange={e => handleLoadStepChange(e.target.value)}
+                  className="settings-select"
+                >
+                  <option value="50">50 items</option>
+                  <option value="100">100 items</option>
+                  <option value="200">200 items</option>
+                  <option value="500">500 items</option>
+                  <option value="1000">1000 items</option>
+                  <option value="custom">Custom...</option>
+                  <option value="all">Show All</option>
+                </select>
+              </div>
+
+              {selectValue === 'custom' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Custom Amount</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={customLoadValue}
+                    onChange={e => handleCustomValueChange(e.target.value)}
+                    className="settings-input"
+                    placeholder="e.g. 150"
+                  />
+                </div>
+              )}
+            </div>
+            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark)', marginTop: '8px' }}>
+              Controls the number of channels/VOD items loaded per page to optimize scrolling performance on mobile and desktop devices.
+            </span>
+          </div>
+        </section>
 
         {/* DATA MANAGEMENT */}
         <section className="settings-section">
@@ -162,6 +212,48 @@ export default function Settings({
           box-shadow: 0 0 6px var(--accent);
           display: inline-block;
           flex-shrink: 0;
+        }
+
+        .settings-select {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--border-color);
+          color: var(--text-main);
+          border-radius: var(--radius-sm);
+          padding: 8px 12px;
+          outline: none;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          cursor: pointer;
+          min-width: 150px;
+          transition: all 0.2s ease;
+        }
+        .settings-select:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.25);
+        }
+        .settings-select:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 6px var(--primary-glow);
+        }
+        .settings-select option {
+          background: #0e111a;
+          color: #fff;
+        }
+        .settings-input {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--border-color);
+          color: #fff;
+          border-radius: var(--radius-sm);
+          padding: 8px 12px;
+          outline: none;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          width: 100px;
+          transition: all 0.2s ease;
+        }
+        .settings-input:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 6px var(--primary-glow);
         }
       `}</style>
     </div>

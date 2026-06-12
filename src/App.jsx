@@ -467,6 +467,11 @@ export default function App() {
             onClearPlaylist={handleLogout}
             onClearFavorites={() => saveFavorites([])}
             playlistInfo={playlistInfo}
+            loadStep={loadStep}
+            handleLoadStepChange={handleLoadStepChange}
+            customLoadValue={customLoadValue}
+            handleCustomValueChange={handleCustomValueChange}
+            selectValue={selectValue}
           />
         ) : (
           <div className="dashboard-grid">
