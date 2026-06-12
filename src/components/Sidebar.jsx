@@ -81,17 +81,19 @@ export default function Sidebar({
           <span>Favorites</span>
         </button>
 
-        <button 
-          className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+      </nav>
+
+      {/* Logout button at footer */}
+      <div className="sidebar-footer">
+        {/* Settings button */}
+        <button
+          className={`menu-item settings-footer-btn ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
           <Settings size={18} />
           <span>Settings</span>
         </button>
-      </nav>
 
-      {/* Logout button at footer */}
-      <div className="sidebar-footer">
         {/* Playlist Status Info */}
         <div className="playlist-status">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -252,6 +254,9 @@ export default function Sidebar({
         .sidebar-footer {
           border-top: 1px solid var(--border-color);
           padding-top: 16px;
+        }
+        .settings-footer-btn {
+          margin-bottom: 8px;
         }
         .logout-btn {
           display: flex;

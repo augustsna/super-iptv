@@ -9,7 +9,10 @@ export default function Player({ channel }) {
   const mpegtsRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.8);
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('superstream_volume');
+    return saved !== null ? parseFloat(saved) : 1;
+  });
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const aspectRatio = 'fit';
@@ -232,6 +235,7 @@ export default function Player({ channel }) {
     const val = parseFloat(e.target.value);
     setVolume(val);
     setIsMuted(val === 0);
+    localStorage.setItem('superstream_volume', String(val));
     if (videoRef.current) {
       videoRef.current.volume = val;
       videoRef.current.muted = val === 0;

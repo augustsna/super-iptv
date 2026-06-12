@@ -35,7 +35,7 @@ export default function Settings({
       <div className="settings-content glass-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
           <Sliders size={24} style={{ color: 'var(--primary)' }} />
-          <h2 className="text-digital glow-text-primary" style={{ fontSize: '20px', color: 'var(--primary)' }}>Application Settings</h2>
+          <h2 style={{ fontSize: '20px', color: 'var(--primary)', fontFamily: 'var(--font-sans)', fontWeight: '700', letterSpacing: '-0.01em' }}>Application Settings</h2>
         </div>
 
         {/* CONNECTION INFO */}
