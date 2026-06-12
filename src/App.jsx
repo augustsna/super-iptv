@@ -1257,6 +1257,7 @@ export default function App() {
             flex-direction: column;
             overflow: hidden;
             height: 100vh;
+            height: 100dvh;
           }
           
           .sidebar-container {
@@ -1275,6 +1276,9 @@ export default function App() {
             bottom: auto;
             left: auto;
             right: auto;
+            /* Push above browser address bar on Android/iOS */
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+            height: calc(60px + env(safe-area-inset-bottom, 12px));
           }
 
           .main-content {

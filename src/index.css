@@ -43,6 +43,7 @@ body {
   color: var(--text-main);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh; /* dynamic viewport — shrinks when mobile browser bar is visible */
   width: 100vw;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -92,6 +93,7 @@ body {
 .app-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: radial-gradient(circle at 50% 50%, #151a30 0%, var(--bg-main) 100%);
 }
