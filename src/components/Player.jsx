@@ -459,18 +459,25 @@ export default function Player({ channel }) {
 
               {/* Volume */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button className="control-btn" onClick={toggleMute}>
+                <button className="control-btn" onClick={toggleMute} title={isMobile ? 'Mute / Unmute (use hardware buttons for volume)' : 'Mute'} >
                   {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </button>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
-                  step="0.05" 
-                  value={isMuted ? 0 : volume} 
-                  onChange={handleVolumeChange} 
-                  className="volume-slider"
-                />
+                {/* Desktop only: software volume slider */}
+                {!isMobile && (
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value={isMuted ? 0 : volume} 
+                    onChange={handleVolumeChange} 
+                    className="volume-slider"
+                  />
+                )}
+                {/* Mobile: hardware volume hint */}
+                {isMobile && (
+                  <span className="mobile-vol-hint">Use ± buttons</span>
+                )}
               </div>
 
               {/* Live badge */}
@@ -674,6 +681,15 @@ export default function Player({ channel }) {
           outline: none;
         }
         
+        .mobile-vol-hint {
+          font-size: 9px;
+          color: rgba(255,255,255,0.35);
+          font-family: var(--font-sans);
+          letter-spacing: 0.03em;
+          white-space: nowrap;
+          pointer-events: none;
+          user-select: none;
+        }
 
       `}</style>
     </div>
