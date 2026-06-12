@@ -19,6 +19,7 @@ export default function Player({ channel }) {
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({ format: 'None', resolution: '0x0', fps: 0, bitrate: 0 });
   const [loading, setLoading] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [showControls, setShowControls] = useState(true);
@@ -47,6 +48,28 @@ export default function Player({ channel }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Debounce the loading spinner to prevent it from flashing during rapid micro-stalls
+  // while actively playing. Show it immediately on initial channel switch.
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      if (isPlaying) {
+        // Debounce showing spinner during active playback to prevent flickering
+        timer = setTimeout(() => {
+          setShowSpinner(true);
+        }, 350);
+      } else {
+        // Show immediately during initial load / channel switch
+        setShowSpinner(true);
+      }
+    } else {
+      setShowSpinner(false);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [loading, isPlaying]);
 
   // Handle stream initialization
   useEffect(() => {
@@ -273,6 +296,16 @@ export default function Player({ channel }) {
 
         mpegtsPlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
           console.error('MPEG-TS Error:', type, detail, info);
+          
+          // Check if video is actually playing.
+          // Non-fatal media errors (such as decoding warnings or transient buffer append issues)
+          // can occur while the video continues playing smoothly in the background.
+          const video = videoRef.current;
+          if (video && !video.paused && video.currentTime > 0) {
+            console.warn(`Non-fatal MPEG-TS error ignored because video is playing: ${type} - ${detail}`, info);
+            return;
+          }
+
           setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
           setLoading(false);
         });
@@ -569,6 +602,21 @@ export default function Player({ channel }) {
             setErrorMsg('');
           }}
           onWaiting={() => setLoading(true)}
+          onError={(e) => {
+            console.error("Video element error event:", e);
+            if (!channel || !channel.url) return;
+            const videoErr = videoRef.current?.error;
+            let detail = "Unknown";
+            if (videoErr) {
+              if (videoErr.code === 1) detail = "Aborted";
+              else if (videoErr.code === 2) detail = "Network Error";
+              else if (videoErr.code === 3) detail = "Decode Error";
+              else if (videoErr.code === 4) detail = "Format Not Supported";
+            }
+            setErrorMsg(`Playback error: ${detail}. The stream might be offline or CORS-blocked.`);
+            setIsPlaying(false);
+            setLoading(false);
+          }}
           onClick={(e) => {
             // Prevent click from bubbling to the container which would double-fire togglePlay
             e.stopPropagation();
@@ -581,7 +629,7 @@ export default function Player({ channel }) {
         />
 
         {/* Loading Spinner */}
-        {loading && (
+        {showSpinner && (
           <div className="spinner-overlay">
             <RefreshCw className="spin-animation" size={40} style={{ color: 'var(--primary)' }} />
           </div>
