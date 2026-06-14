@@ -13,7 +13,6 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
   // Admin panel state
   const [adminMode, setAdminMode] = useState('none'); // 'none', 'auth', 'config'
   const [adminPassword, setAdminPassword] = useState('');
-  const [newAdminPassword, setNewAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
   const [adminSuccess, setAdminSuccess] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
@@ -109,8 +108,14 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         setTempPassword(data.config.password || '');
         setAdminMode('config');
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Invalid admin password');
+        let errorMsg = 'Invalid admin password';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error || errorMsg;
+        } catch (_) {
+          errorMsg = `Server error (Status ${response.status}). Is the backend server running?`;
+        }
+        throw new Error(errorMsg);
       }
     } catch (err) {
       setAdminError(err.message);
@@ -132,8 +137,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           adminPassword,
           xtreamUrl: tempXtreamUrl,
           username: tempUsername,
-          password: tempPassword,
-          newAdminPassword: newAdminPassword || undefined
+          password: tempPassword
         })
       });
 
@@ -144,7 +148,6 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         setXtreamUrl(tempXtreamUrl);
         setUsername(tempUsername);
         setPassword(tempPassword);
-        setNewAdminPassword('');
 
         setTimeout(() => {
           setAdminMode('none');
@@ -152,8 +155,14 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
           setAdminPassword('');
         }, 1500);
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to update configuration');
+        let errorMsg = 'Failed to update configuration';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error || errorMsg;
+        } catch (_) {
+          errorMsg = `Server error (Status ${response.status}). Is the backend server running?`;
+        }
+        throw new Error(errorMsg);
       }
     } catch (err) {
       setAdminError(err.message);
@@ -312,16 +321,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '8px', paddingTop: '16px' }}>
-                  <label className="input-label">Change Admin Password (Optional)</label>
-                  <input
-                    type="password"
-                    className="input-field"
-                    value={newAdminPassword}
-                    onChange={e => setNewAdminPassword(e.target.value)}
-                    placeholder="Enter new admin password"
-                  />
-                </div>
+
 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
                   Save Configuration
