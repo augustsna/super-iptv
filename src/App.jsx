@@ -167,8 +167,8 @@ export default function App() {
     if (info.type === 'm3u') {
       setChannels(info.channels);
       const hasWorldCup = info.categories.includes('World Cup 2026');
-      setCategories(hasWorldCup ? ['World Cup 2026', 'Sports', 'All Channels'] : ['Sports', 'All Channels']);
-      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'Sports');
+      setCategories(hasWorldCup ? ['All Channels', 'World Cup 2026', 'Sports'] : ['All Channels', 'Sports']);
+      setSelectedCategory('All Channels');
       setActiveTab('live');
     } else if (info.type === 'xtream') {
       // Fetch Live categories and streams
@@ -198,7 +198,7 @@ export default function App() {
 
       // Formulate categories
       const hasWorldCup = Array.isArray(catsJson) && catsJson.some(c => c.category_name === 'World Cup 2026');
-      setCategories(hasWorldCup ? ['World Cup 2026', 'Sports', 'All Channels'] : ['Sports', 'All Channels']);
+      setCategories(hasWorldCup ? ['All Channels', 'World Cup 2026', 'Sports'] : ['All Channels', 'Sports']);
 
       // Parse and format streams
       const catMap = {};
@@ -216,7 +216,7 @@ export default function App() {
         : [];
 
       setChannels(formattedChannels);
-      setSelectedCategory(hasWorldCup ? 'World Cup 2026' : 'Sports');
+      setSelectedCategory('All Channels');
       setActiveTab('live');
     } catch (err) {
       console.error(err);
