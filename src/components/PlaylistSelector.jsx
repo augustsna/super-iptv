@@ -173,7 +173,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
   return (
     <div className="playlist-selector-container">
-      <div className="glass-panel" style={{ padding: '40px', maxWidth: '520px', width: '100%', margin: 'auto' }}>
+      <div className="glass-panel" style={{ padding: '40px 40px 20px 40px', maxWidth: '400px', width: '100%', height: '600px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', margin: 'auto' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
@@ -193,7 +193,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
         {/* ADMIN MODE: AUTHENTICATION */}
         {adminMode === 'auth' && (
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
               <button
                 type="button"
@@ -215,38 +215,40 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
             )}
 
             {adminLoading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '30px 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
                 <Loader className="spin-animation" size={24} style={{ color: 'var(--primary)', marginBottom: '12px' }} />
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Authenticating...</p>
               </div>
             ) : (
-              <form onSubmit={handleAdminAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <label className="input-label">Admin Password</label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark)' }} />
-                    <input
-                      type="password"
-                      className="input-field"
-                      value={adminPassword}
-                      onChange={e => setAdminPassword(e.target.value)}
-                      placeholder="Enter admin password"
-                      style={{ paddingLeft: '36px' }}
-                      required
-                    />
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1, paddingBottom: '40px' }}>
+                <form onSubmit={handleAdminAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label className="input-label">Admin Password</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark)' }} />
+                      <input
+                        type="password"
+                        className="input-field"
+                        value={adminPassword}
+                        onChange={e => setAdminPassword(e.target.value)}
+                        placeholder="Enter admin password"
+                        style={{ paddingLeft: '36px' }}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
-                  Login to Admin Panel
-                </button>
-              </form>
+                  <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                    Login to Admin Panel
+                  </button>
+                </form>
+              </div>
             )}
           </div>
         )}
 
         {/* ADMIN MODE: CONFIGURATION */}
         {adminMode === 'config' && (
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
               <button
                 type="button"
@@ -278,12 +280,12 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
             )}
 
             {adminLoading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '30px 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
                 <Loader className="spin-animation" size={24} style={{ color: 'var(--primary)', marginBottom: '12px' }} />
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Saving configuration...</p>
               </div>
             ) : (
-              <form onSubmit={handleAdminSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <form onSubmit={handleAdminSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
                 <div>
                   <label className="input-label">Default Server Host URL</label>
                   <input
@@ -296,32 +298,28 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label className="input-label">Default Username</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={tempUsername}
-                      onChange={e => setTempUsername(e.target.value)}
-                      placeholder="Username"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label">Default Password</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={tempPassword}
-                      onChange={e => setTempPassword(e.target.value)}
-                      placeholder="Password"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="input-label">Default Username</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={tempUsername}
+                    onChange={e => setTempUsername(e.target.value)}
+                    placeholder="Username"
+                    required
+                  />
                 </div>
-
-
+                <div>
+                  <label className="input-label">Default Password</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={tempPassword}
+                    onChange={e => setTempPassword(e.target.value)}
+                    placeholder="Password"
+                    required
+                  />
+                </div>
 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
                   Save Configuration
@@ -333,7 +331,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
         {/* STANDARD USER LOGIN FORM */}
         {adminMode === 'none' && (
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             {errorMsg && (
               <div style={{ display: 'flex', gap: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: '20px', color: '#f87171', fontSize: '13px', lineHeight: '1.5' }}>
                 <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -342,12 +340,12 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
             )}
 
             {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
                 <Loader className="spin-animation" size={32} style={{ color: 'var(--primary)', marginBottom: '16px' }} />
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Connecting and parsing channels...</p>
               </div>
             ) : (
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1 }}>
                 <form onSubmit={handleXtreamLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className="input-label">Server Host URL</label>
@@ -360,29 +358,27 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
                       required
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <label className="input-label">Username</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
-                        placeholder="Username"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="input-label">Password</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="Password"
-                        required
-                      />
-                    </div>
+                  <div>
+                    <label className="input-label">Username</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      placeholder="Username"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">Password</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Password"
+                      required
+                    />
                   </div>
 
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
