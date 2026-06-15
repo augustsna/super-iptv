@@ -1,13 +1,14 @@
 import os
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, 
-    QFrame, QMessageBox, QGraphicsDropShadowEffect, QSizePolicy
+    QFrame, QMessageBox, QGraphicsDropShadowEffect, QSizePolicy,
+    QDialog, QFormLayout, QStackedWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSettings
+from PyQt6.QtCore import Qt, pyqtSignal, QSettings, QTimer
 from PyQt6.QtGui import QColor, QFont
 
 import mock_server
-from workers import LoginWorker
+from workers import LoginWorker, SyncWorker, AdminAuthWorker, AdminSaveWorker
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,6 +24,7 @@ class LoginWidget(QWidget):
         
         self.setup_ui()
         self.load_saved_credentials()
+        self.start_sync()
 
     def setup_ui(self):
         self.setObjectName("LoginWidget")
@@ -81,30 +83,19 @@ class LoginWidget(QWidget):
             QPushButton#loginBtn:pressed {
                 background-color: #4a3cb0;
             }
-            QPushButton#mockBtn {
-                background-color: #1a1a24;
-                color: #00d2d3;
-                border: 1px solid #00d2d3;
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton#mockBtn:hover {
-                background-color: rgba(0, 210, 211, 0.1);
-            }
-            QPushButton#mockBtn:pressed {
-                background-color: rgba(0, 210, 211, 0.2);
-            }
-            QPushButton#togglePassBtn {
+            QPushButton#adminBtn {
                 background: none;
                 border: none;
                 color: #8f8f9e;
+                font-size: 11px;
                 font-weight: bold;
-                padding: 0px 5px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                padding: 5px;
+                margin-top: 5px;
             }
-            QPushButton#togglePassBtn:hover {
-                color: #ffffff;
+            QPushButton#adminBtn:hover {
+                color: #6c5ce7;
             }
             QLabel#statusLabel {
                 color: #ff7675;
@@ -168,59 +159,38 @@ class LoginWidget(QWidget):
         # 3. Password
         pass_label = QLabel("PASSWORD", self)
         pass_label.setObjectName("fieldLabel")
-        
-        pass_input_layout = QHBoxLayout()
         self.pass_input = QLineEdit(self)
-        self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.pass_input.setEchoMode(QLineEdit.EchoMode.Normal) # Do not censor!
         self.pass_input.setPlaceholderText("Enter your password")
         
-        self.toggle_pass_btn = QPushButton("👁", self)
-        self.toggle_pass_btn.setObjectName("togglePassBtn")
-        self.toggle_pass_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.toggle_pass_btn.clicked.connect(self.toggle_password_visibility)
-        
-        # Position absolute feel inside lineedit or side-aligned
-        pass_input_layout.addWidget(self.pass_input)
-        pass_input_layout.addWidget(self.toggle_pass_btn)
-        
         card_layout.addWidget(pass_label)
-        card_layout.addLayout(pass_input_layout)
-
+        card_layout.addWidget(self.pass_input)
+ 
         # Status Message area
         self.status_label = QLabel("", self)
         self.status_label.setObjectName("statusLabel")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(self.status_label)
-
+ 
         # Buttons
         self.login_btn = QPushButton("LOG IN", self)
         self.login_btn.setObjectName("loginBtn")
         self.login_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.login_btn.clicked.connect(self.start_login)
         card_layout.addWidget(self.login_btn)
+ 
+        # Divider line above Admin button
+        admin_divider = QFrame(self)
+        admin_divider.setFrameShape(QFrame.Shape.HLine)
+        admin_divider.setStyleSheet("background-color: #282830; margin-top: 15px; margin-bottom: 5px;")
+        card_layout.addWidget(admin_divider)
 
-        # Divider
-        divider_layout = QHBoxLayout()
-        line1 = QFrame(self)
-        line1.setFrameShape(QFrame.Shape.HLine)
-        line1.setStyleSheet("background-color: #282830;")
-        line2 = QFrame(self)
-        line2.setFrameShape(QFrame.Shape.HLine)
-        line2.setStyleSheet("background-color: #282830;")
-        or_label = QLabel("OR", self)
-        or_label.setStyleSheet("color: #6f6f7e; font-size: 11px;")
-        
-        divider_layout.addWidget(line1)
-        divider_layout.addWidget(or_label)
-        divider_layout.addWidget(line2)
-        card_layout.addLayout(divider_layout)
-
-        # Mock Server Button
-        self.mock_btn = QPushButton("⚡ USE LOCAL MOCK SERVER", self)
-        self.mock_btn.setObjectName("mockBtn")
-        self.mock_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mock_btn.clicked.connect(self.login_with_mock)
-        card_layout.addWidget(self.mock_btn)
+        # Admin Panel Link Button
+        self.admin_btn = QPushButton("🔐 SERVER ADMIN PANEL", self)
+        self.admin_btn.setObjectName("adminBtn")
+        self.admin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.admin_btn.clicked.connect(self.open_admin_panel)
+        card_layout.addWidget(self.admin_btn)
 
         outer_layout.addWidget(card)
 
@@ -247,7 +217,6 @@ class LoginWidget(QWidget):
         self.user_input.setEnabled(enabled)
         self.pass_input.setEnabled(enabled)
         self.login_btn.setEnabled(enabled)
-        self.mock_btn.setEnabled(enabled)
         if not enabled:
             self.login_btn.setText("CONNECTING...")
         else:
@@ -282,14 +251,238 @@ class LoginWidget(QWidget):
             logging.warning(f"LoginWidget: Login failed - {message}")
             self.status_label.setText(f"⚠ {message}")
 
-    def login_with_mock(self):
-        # Start local mock server
-        mock_server.start_server()
+    def start_sync(self):
+        self.status_label.setStyleSheet("color: #8f8f9e;")
+        self.status_label.setText("Syncing with Ubuntu server...")
+        self.set_ui_enabled(False)
         
-        # Fill in mock server details
-        self.host_input.setText("http://127.0.0.1:8081")
-        self.user_input.setText("mock_user")
-        self.pass_input.setText("mock_password")
+        # Start SyncWorker Thread
+        self.sync_worker = SyncWorker()
+        self.sync_worker.finished.connect(self.on_sync_finished)
+        self.sync_worker.start()
+
+    def on_sync_finished(self, success, data, message):
+        self.set_ui_enabled(True)
+        if success:
+            xtream_url = data.get("xtreamUrl", "")
+            username = data.get("username", "")
+            password = data.get("password", "")
+            
+            self.host_input.setText(xtream_url)
+            self.user_input.setText(username)
+            self.pass_input.setText(password)
+            
+            logging.info("LoginWidget: Synced with Ubuntu Server successfully.")
+            self.status_label.setStyleSheet("color: #00d2d3; font-weight: bold;")
+            self.status_label.setText("✔ Synced with Ubuntu Server successfully!")
+        else:
+            logging.warning(f"LoginWidget: Sync failed - {message}")
+            self.status_label.setStyleSheet("color: #ff7675; font-weight: bold;")
+            self.status_label.setText(f"⚠ Sync failed: {message}")
+
+    def open_admin_panel(self):
+        dialog = AdminPanelDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.start_sync()
+
+
+class AdminPanelDialog(QDialog):
+    def __init__(self, parent=None, config_url="http://107.174.178.52/api/config"):
+        super().__init__(parent)
+        self.config_url = config_url
+        self.admin_password = ""
+        self.auth_worker = None
+        self.save_worker = None
         
-        # Log in
-        self.start_login()
+        self.setWindowTitle("Server Admin Panel")
+        self.resize(450, 320)
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #121215;
+                border: 1px solid #202026;
+            }
+            QLabel {
+                color: #c5c5d2;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QLineEdit {
+                background-color: #1e1e24;
+                color: #ffffff;
+                border: 1px solid #2d2d38;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 13px;
+            }
+            QLineEdit:focus {
+                border-color: #6c5ce7;
+                background-color: #22222b;
+            }
+            QPushButton {
+                background-color: #6c5ce7;
+                color: #ffffff;
+                border: none;
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5b4cc4;
+            }
+            QPushButton:pressed {
+                background-color: #4a3cb0;
+            }
+            QPushButton:disabled {
+                background-color: #2b2b35;
+                color: #8f8f9e;
+            }
+        """)
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(25, 25, 25, 25)
+        self.layout.setSpacing(15)
+
+        self.stacked_widget = QStackedWidget(self)
+        self.layout.addWidget(self.stacked_widget)
+
+        # Page 1: Auth Screen
+        self.auth_widget = QWidget()
+        auth_layout = QVBoxLayout(self.auth_widget)
+        auth_layout.setContentsMargins(0, 0, 0, 0)
+        auth_layout.setSpacing(15)
+
+        title_label = QLabel("ADMIN AUTHENTICATION")
+        title_label.setStyleSheet("font-size: 16px; color: #ffffff; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        auth_layout.addWidget(title_label)
+
+        # Password input
+        self.admin_pass_input = QLineEdit()
+        self.admin_pass_input.setPlaceholderText("Enter admin password")
+        self.admin_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        auth_layout.addWidget(self.admin_pass_input)
+
+        # Auth Button
+        self.auth_btn = QPushButton("LOGIN TO ADMIN PANEL")
+        self.auth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.auth_btn.clicked.connect(self.start_auth)
+        auth_layout.addWidget(self.auth_btn)
+
+        # Auth Status
+        self.auth_status = QLabel("")
+        self.auth_status.setStyleSheet("color: #ff7675; font-weight: bold;")
+        self.auth_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        auth_layout.addWidget(self.auth_status)
+        auth_layout.addStretch()
+
+        self.stacked_widget.addWidget(self.auth_widget)
+
+        # Page 2: Config Screen
+        self.config_widget = QWidget()
+        config_layout = QVBoxLayout(self.config_widget)
+        config_layout.setContentsMargins(0, 0, 0, 0)
+        config_layout.setSpacing(12)
+
+        config_title = QLabel("ADMIN CONFIGURATION")
+        config_title.setStyleSheet("font-size: 16px; color: #ffffff; font-weight: bold;")
+        config_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        config_layout.addWidget(config_title)
+
+        # Form layout for editing default settings
+        form_layout = QFormLayout()
+        form_layout.setSpacing(10)
+        
+        self.default_host_input = QLineEdit()
+        self.default_host_input.setPlaceholderText("http://example.com:8080")
+        
+        self.default_user_input = QLineEdit()
+        self.default_user_input.setPlaceholderText("Username")
+        
+        self.default_pass_input = QLineEdit()
+        self.default_pass_input.setPlaceholderText("Password")
+        self.default_pass_input.setEchoMode(QLineEdit.EchoMode.Normal)
+
+        form_layout.addRow(QLabel("DEFAULT SERVER HOST URL:"), self.default_host_input)
+        form_layout.addRow(QLabel("DEFAULT USERNAME:"), self.default_user_input)
+        form_layout.addRow(QLabel("DEFAULT PASSWORD:"), self.default_pass_input)
+        config_layout.addLayout(form_layout)
+
+        # Save Button
+        self.save_btn = QPushButton("SAVE CONFIGURATION")
+        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.save_btn.clicked.connect(self.start_save)
+        config_layout.addWidget(self.save_btn)
+
+        # Config Status
+        self.config_status = QLabel("")
+        self.config_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        config_layout.addWidget(self.config_status)
+        config_layout.addStretch()
+
+        self.stacked_widget.addWidget(self.config_widget)
+
+    def start_auth(self):
+        password = self.admin_pass_input.text().strip()
+        if not password:
+            self.auth_status.setText("⚠ Please enter admin password.")
+            return
+
+        self.auth_status.setStyleSheet("color: #8f8f9e;")
+        self.auth_status.setText("Authenticating...")
+        self.auth_btn.setEnabled(False)
+        self.admin_pass_input.setEnabled(False)
+
+        self.auth_worker = AdminAuthWorker(self.config_url, password)
+        self.auth_worker.finished.connect(self.on_auth_finished)
+        self.auth_worker.start()
+
+    def on_auth_finished(self, success, config, message):
+        self.auth_btn.setEnabled(True)
+        self.admin_pass_input.setEnabled(True)
+
+        if success:
+            self.admin_password = self.admin_pass_input.text().strip()
+            self.auth_status.setText("")
+            
+            # Populate config fields
+            self.default_host_input.setText(config.get("xtreamUrl", ""))
+            self.default_user_input.setText(config.get("username", ""))
+            self.default_pass_input.setText(config.get("password", ""))
+            
+            # Switch to config page
+            self.stacked_widget.setCurrentIndex(1)
+        else:
+            self.auth_status.setStyleSheet("color: #ff7675; font-weight: bold;")
+            self.auth_status.setText(f"⚠ {message}")
+
+    def start_save(self):
+        host = self.default_host_input.text().strip()
+        user = self.default_user_input.text().strip()
+        pwd = self.default_pass_input.text().strip()
+
+        if not host or not user or not pwd:
+            self.config_status.setStyleSheet("color: #ff7675; font-weight: bold;")
+            self.config_status.setText("⚠ Please fill in all default config fields.")
+            return
+
+        self.config_status.setStyleSheet("color: #8f8f9e;")
+        self.config_status.setText("Saving config to server...")
+        self.save_btn.setEnabled(False)
+
+        self.save_worker = AdminSaveWorker(self.config_url, self.admin_password, host, user, pwd)
+        self.save_worker.finished.connect(self.on_save_finished)
+        self.save_worker.start()
+
+    def on_save_finished(self, success, message):
+        self.save_btn.setEnabled(True)
+        if success:
+            self.config_status.setStyleSheet("color: #00d2d3; font-weight: bold;")
+            self.config_status.setText(f"✔ {message}")
+            QTimer.singleShot(1500, self.accept)
+        else:
+            self.config_status.setStyleSheet("color: #ff7675; font-weight: bold;")
+            self.config_status.setText(f"⚠ {message}")
