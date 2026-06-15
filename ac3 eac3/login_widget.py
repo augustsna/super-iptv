@@ -109,19 +109,19 @@ class LoginWidget(QWidget):
         outer_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Login Card
-        card = QFrame(self)
-        card.setObjectName("card")
-        card.setFixedWidth(400)
-        card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        self.card = QFrame(self)
+        self.card.setObjectName("card")
+        self.card.setFixedWidth(400)
+        self.card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         
         # Shadow effect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(20)
         shadow.setColor(QColor(0, 0, 0, 150))
         shadow.setOffset(0, 10)
-        card.setGraphicsEffect(shadow)
+        self.card.setGraphicsEffect(shadow)
 
-        card_layout = QVBoxLayout(card)
+        card_layout = QVBoxLayout(self.card)
         card_layout.setContentsMargins(35, 40, 35, 40)
         card_layout.setSpacing(15)
 
@@ -192,15 +192,7 @@ class LoginWidget(QWidget):
         self.admin_btn.clicked.connect(self.open_admin_panel)
         card_layout.addWidget(self.admin_btn)
 
-        outer_layout.addWidget(card)
-
-    def toggle_password_visibility(self):
-        if self.pass_input.echoMode() == QLineEdit.EchoMode.Password:
-            self.pass_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.toggle_pass_btn.setText("🙈")
-        else:
-            self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.toggle_pass_btn.setText("👁")
+        outer_layout.addWidget(self.card)
 
     def load_saved_credentials(self):
         self.host_input.setText(self.settings.value("host", ""))
@@ -282,6 +274,7 @@ class LoginWidget(QWidget):
 
     def open_admin_panel(self):
         dialog = AdminPanelDialog(self)
+        dialog.resize(self.card.size())
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.start_sync()
 
@@ -355,6 +348,8 @@ class AdminPanelDialog(QDialog):
         auth_layout.setContentsMargins(0, 0, 0, 0)
         auth_layout.setSpacing(15)
 
+        auth_layout.addStretch()
+
         title_label = QLabel("ADMIN AUTHENTICATION")
         title_label.setStyleSheet("font-size: 16px; color: #ffffff; font-weight: bold;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -364,19 +359,22 @@ class AdminPanelDialog(QDialog):
         self.admin_pass_input = QLineEdit()
         self.admin_pass_input.setPlaceholderText("Enter admin password")
         self.admin_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-        auth_layout.addWidget(self.admin_pass_input)
+        self.admin_pass_input.setFixedWidth(300)
+        auth_layout.addWidget(self.admin_pass_input, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Auth Button
         self.auth_btn = QPushButton("LOGIN TO ADMIN PANEL")
         self.auth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.auth_btn.clicked.connect(self.start_auth)
-        auth_layout.addWidget(self.auth_btn)
+        self.auth_btn.setFixedWidth(300)
+        auth_layout.addWidget(self.auth_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Auth Status
         self.auth_status = QLabel("")
         self.auth_status.setStyleSheet("color: #ff7675; font-weight: bold;")
         self.auth_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         auth_layout.addWidget(self.auth_status)
+        
         auth_layout.addStretch()
 
         self.stacked_widget.addWidget(self.auth_widget)
@@ -385,42 +383,54 @@ class AdminPanelDialog(QDialog):
         self.config_widget = QWidget()
         config_layout = QVBoxLayout(self.config_widget)
         config_layout.setContentsMargins(0, 0, 0, 0)
-        config_layout.setSpacing(12)
+        config_layout.setSpacing(8)
+
+        config_layout.addStretch()
 
         config_title = QLabel("ADMIN CONFIGURATION")
-        config_title.setStyleSheet("font-size: 16px; color: #ffffff; font-weight: bold;")
+        config_title.setStyleSheet("font-size: 16px; color: #ffffff; font-weight: bold; margin-bottom: 5px;")
         config_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         config_layout.addWidget(config_title)
 
-        # Form layout for editing default settings
-        form_layout = QFormLayout()
-        form_layout.setSpacing(10)
-        
+        # Vertical labels and fields
+        host_lbl = QLabel("DEFAULT SERVER HOST URL:")
+        host_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.default_host_input = QLineEdit()
         self.default_host_input.setPlaceholderText("http://example.com:8080")
+        self.default_host_input.setFixedWidth(300)
         
+        user_lbl = QLabel("DEFAULT USERNAME:")
+        user_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.default_user_input = QLineEdit()
         self.default_user_input.setPlaceholderText("Username")
+        self.default_user_input.setFixedWidth(300)
         
+        pass_lbl = QLabel("DEFAULT PASSWORD:")
+        pass_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.default_pass_input = QLineEdit()
         self.default_pass_input.setPlaceholderText("Password")
         self.default_pass_input.setEchoMode(QLineEdit.EchoMode.Normal)
+        self.default_pass_input.setFixedWidth(300)
 
-        form_layout.addRow(QLabel("DEFAULT SERVER HOST URL:"), self.default_host_input)
-        form_layout.addRow(QLabel("DEFAULT USERNAME:"), self.default_user_input)
-        form_layout.addRow(QLabel("DEFAULT PASSWORD:"), self.default_pass_input)
-        config_layout.addLayout(form_layout)
+        config_layout.addWidget(host_lbl)
+        config_layout.addWidget(self.default_host_input, alignment=Qt.AlignmentFlag.AlignCenter)
+        config_layout.addWidget(user_lbl)
+        config_layout.addWidget(self.default_user_input, alignment=Qt.AlignmentFlag.AlignCenter)
+        config_layout.addWidget(pass_lbl)
+        config_layout.addWidget(self.default_pass_input, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Save Button
         self.save_btn = QPushButton("SAVE CONFIGURATION")
         self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.save_btn.clicked.connect(self.start_save)
-        config_layout.addWidget(self.save_btn)
+        self.save_btn.setFixedWidth(300)
+        config_layout.addWidget(self.save_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Config Status
         self.config_status = QLabel("")
         self.config_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         config_layout.addWidget(self.config_status)
+
         config_layout.addStretch()
 
         self.stacked_widget.addWidget(self.config_widget)
