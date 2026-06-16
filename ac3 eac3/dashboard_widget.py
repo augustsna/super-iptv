@@ -259,7 +259,6 @@ class DashboardWidget(QWidget):
         self.setup_movies_panel()
         self.setup_series_panel()
         self.setup_settings_panel()
-        self.setup_theater_panel() # Added theater mode panel for Movies/Series fullscreen media player
 
         self.main_layout.addWidget(self.sidebar)
         self.main_layout.addWidget(self.content_stack)
@@ -276,9 +275,9 @@ class DashboardWidget(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal, panel)
         
         # Left: Categories
-        cat_widget = QWidget(self)
-        cat_widget.setMinimumWidth(120)
-        cat_layout = QVBoxLayout(cat_widget)
+        self.live_cat_widget = QWidget(self)
+        self.live_cat_widget.setMinimumWidth(120)
+        cat_layout = QVBoxLayout(self.live_cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         
         cat_title = QLabel("Categories", self)
@@ -290,9 +289,9 @@ class DashboardWidget(QWidget):
         cat_layout.addWidget(self.live_cat_list)
 
         # Center: Channel list & search bar
-        channel_widget = QWidget(self)
-        channel_widget.setMinimumWidth(120)
-        channel_layout = QVBoxLayout(channel_widget)
+        self.live_channel_widget = QWidget(self)
+        self.live_channel_widget.setMinimumWidth(120)
+        channel_layout = QVBoxLayout(self.live_channel_widget)
         channel_layout.setContentsMargins(0, 0, 0, 0)
         
         self.live_search = QLineEdit(self)
@@ -311,12 +310,66 @@ class DashboardWidget(QWidget):
         self.live_detail_pane.setMinimumWidth(320)
         self.live_detail_pane.setProperty("class", "detail-pane")
         self.live_detail_layout = QVBoxLayout(self.live_detail_pane)
-        self.live_detail_layout.setContentsMargins(5, 5, 5, 5)
+        self.live_detail_layout.setContentsMargins(8, 8, 8, 8)
         self.live_detail_layout.setSpacing(10)
+
+        # Toggle layout row for panel visibilities
+        toggle_layout = QHBoxLayout()
+        toggle_layout.setContentsMargins(0, 0, 0, 0)
+        toggle_layout.setSpacing(5)
+        
+        self.sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.sidebar_toggle_btn.setCheckable(True)
+        self.sidebar_toggle_btn.setChecked(True)
+        self.sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sidebar_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a1a24;
+                color: #e0e0e2;
+                border: 1px solid #2d2d3d;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(108, 92, 231, 0.2);
+                border-color: #6c5ce7;
+                color: #ffffff;
+            }
+            QPushButton:checked {
+                color: #6c5ce7;
+                border-color: #6c5ce7;
+                background-color: rgba(108, 92, 231, 0.1);
+            }
+        """)
+        self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
+        
+        self.cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.cat_toggle_btn.setCheckable(True)
+        self.cat_toggle_btn.setChecked(True)
+        self.cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.cat_toggle_btn.clicked.connect(self.toggle_categories)
+        
+        self.channel_toggle_btn = QPushButton("📋 Channels", self)
+        self.channel_toggle_btn.setCheckable(True)
+        self.channel_toggle_btn.setChecked(True)
+        self.channel_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.channel_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.channel_toggle_btn.clicked.connect(self.toggle_channels)
+        
+        toggle_layout.addWidget(self.sidebar_toggle_btn)
+        toggle_layout.addWidget(self.cat_toggle_btn)
+        toggle_layout.addWidget(self.channel_toggle_btn)
+        toggle_layout.addStretch()
+        
+        self.live_detail_layout.addLayout(toggle_layout)
 
         # Layout for the mini-player container (we will dock player widget here)
         self.mini_player_container = QFrame(self)
         self.mini_player_container.setMinimumHeight(240)
+        self.mini_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.mini_player_container.setStyleSheet("background-color: #000000; border-radius: 6px;")
         self.mini_player_layout = QVBoxLayout(self.mini_player_container)
         self.mini_player_layout.setContentsMargins(0, 0, 0, 0)
@@ -333,15 +386,15 @@ class DashboardWidget(QWidget):
         self.live_info_desc.setWordWrap(True)
         self.live_info_desc.setProperty("class", "plot-label")
         
-        self.live_detail_layout.addWidget(self.mini_player_container)
+        self.live_detail_layout.addWidget(self.mini_player_container, stretch=9)
         self.live_detail_layout.addWidget(self.live_info_title)
         self.live_detail_layout.addWidget(self.live_info_desc)
-        self.live_detail_layout.addStretch()
+        self.live_detail_layout.addStretch(1)
 
         # Add to splitter in new order: Player (left/middle), Categories (right-left), Channels (right-right)
         splitter.addWidget(self.live_detail_pane)
-        splitter.addWidget(cat_widget)
-        splitter.addWidget(channel_widget)
+        splitter.addWidget(self.live_cat_widget)
+        splitter.addWidget(self.live_channel_widget)
         
         # Set default splitter sizes (Player: 55%, Categories: 22.5%, Streams: 22.5%)
         splitter.setSizes([470, 215, 215])
@@ -357,42 +410,60 @@ class DashboardWidget(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal, panel)
 
-        # Left: Categories
-        cat_widget = QWidget(self)
-        cat_widget.setMinimumWidth(120)
-        cat_layout = QVBoxLayout(cat_widget)
-        cat_layout.setContentsMargins(0, 0, 0, 0)
-        self.movie_cat_list = QListWidget(self)
-        self.movie_cat_list.currentRowChanged.connect(self.on_movie_category_changed)
-        
-        cat_layout.addWidget(QLabel("Categories", self))
-        cat_layout.addWidget(self.movie_cat_list)
-        splitter.addWidget(cat_widget)
-
-        # Center: Movie search & list
-        movies_widget = QWidget(self)
-        movies_widget.setMinimumWidth(120)
-        movies_layout = QVBoxLayout(movies_widget)
-        movies_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.movie_search = QLineEdit(self)
-        self.movie_search.setPlaceholderText("🔍 Search movies...")
-        self.movie_search.setProperty("class", "search-bar")
-        self.movie_search.textChanged.connect(self.filter_movies)
-        
-        self.movie_list = QListWidget(self)
-        self.movie_list.itemClicked.connect(self.on_movie_clicked)
-        
-        movies_layout.addWidget(self.movie_search)
-        movies_layout.addWidget(self.movie_list)
-        splitter.addWidget(movies_widget)
-
-        # Right: Movie Details View
+        # 1. Left/Middle: Movie Details View (with player)
         self.movie_detail_pane = QFrame(self)
         self.movie_detail_pane.setMinimumWidth(320)
         self.movie_detail_pane.setProperty("class", "detail-pane")
         self.movie_detail_layout = QVBoxLayout(self.movie_detail_pane)
+        self.movie_detail_layout.setContentsMargins(8, 8, 8, 8)
+        self.movie_detail_layout.setSpacing(10)
+
+        # Toggle Layout
+        movie_toggle_layout = QHBoxLayout()
+        movie_toggle_layout.setContentsMargins(0, 0, 0, 0)
+        movie_toggle_layout.setSpacing(5)
         
+        self.movie_sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.movie_sidebar_toggle_btn.setCheckable(True)
+        self.movie_sidebar_toggle_btn.setChecked(True)
+        self.movie_sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.movie_sidebar_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.movie_sidebar_toggle_btn.clicked.connect(self.toggle_movie_sidebar)
+        
+        self.movie_cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.movie_cat_toggle_btn.setCheckable(True)
+        self.movie_cat_toggle_btn.setChecked(True)
+        self.movie_cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.movie_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.movie_cat_toggle_btn.clicked.connect(self.toggle_movie_categories)
+        
+        self.movie_list_toggle_btn = QPushButton("🎬 Movies", self)
+        self.movie_list_toggle_btn.setCheckable(True)
+        self.movie_list_toggle_btn.setChecked(True)
+        self.movie_list_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.movie_list_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.movie_list_toggle_btn.clicked.connect(self.toggle_movie_list)
+        
+        movie_toggle_layout.addWidget(self.movie_sidebar_toggle_btn)
+        movie_toggle_layout.addWidget(self.movie_cat_toggle_btn)
+        movie_toggle_layout.addWidget(self.movie_list_toggle_btn)
+        movie_toggle_layout.addStretch()
+        
+        self.movie_detail_layout.addLayout(movie_toggle_layout)
+
+        # Movie Player Container
+        self.movie_player_container = QFrame(self)
+        self.movie_player_container.setMinimumHeight(240)
+        self.movie_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.movie_player_container.setStyleSheet("background-color: #000000; border-radius: 6px;")
+        self.movie_player_layout = QVBoxLayout(self.movie_player_container)
+        self.movie_player_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.movie_info_label = QLabel("Select a movie to play", self)
+        self.movie_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.movie_info_label.setProperty("class", "plot-label")
+        self.movie_player_layout.addWidget(self.movie_info_label)
+
         self.movie_title_label = QLabel("Select a Movie", self)
         self.movie_title_label.setProperty("class", "pane-title")
         
@@ -409,15 +480,46 @@ class DashboardWidget(QWidget):
         self.movie_play_btn.clicked.connect(self.play_selected_movie)
         self.movie_play_btn.hide()
         
+        self.movie_detail_layout.addWidget(self.movie_player_container, stretch=9)
         self.movie_detail_layout.addWidget(self.movie_title_label)
         self.movie_detail_layout.addWidget(self.movie_rating_label)
         self.movie_detail_layout.addWidget(self.movie_desc_label)
         self.movie_detail_layout.addSpacing(15)
         self.movie_detail_layout.addWidget(self.movie_play_btn)
-        self.movie_detail_layout.addStretch()
+        self.movie_detail_layout.addStretch(1)
+
+        # Center: Categories
+        self.movie_cat_widget = QWidget(self)
+        self.movie_cat_widget.setMinimumWidth(120)
+        cat_layout = QVBoxLayout(self.movie_cat_widget)
+        cat_layout.setContentsMargins(0, 0, 0, 0)
+        self.movie_cat_list = QListWidget(self)
+        self.movie_cat_list.currentRowChanged.connect(self.on_movie_category_changed)
+        
+        cat_layout.addWidget(QLabel("Categories", self))
+        cat_layout.addWidget(self.movie_cat_list)
+
+        # Right: Movies List
+        self.movie_list_widget = QWidget(self)
+        self.movie_list_widget.setMinimumWidth(120)
+        movies_layout = QVBoxLayout(self.movie_list_widget)
+        movies_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.movie_search = QLineEdit(self)
+        self.movie_search.setPlaceholderText("🔍 Search movies...")
+        self.movie_search.setProperty("class", "search-bar")
+        self.movie_search.textChanged.connect(self.filter_movies)
+        
+        self.movie_list = QListWidget(self)
+        self.movie_list.itemClicked.connect(self.on_movie_clicked)
+        
+        movies_layout.addWidget(self.movie_search)
+        movies_layout.addWidget(self.movie_list)
 
         splitter.addWidget(self.movie_detail_pane)
-        splitter.setSizes([215, 215, 470])
+        splitter.addWidget(self.movie_cat_widget)
+        splitter.addWidget(self.movie_list_widget)
+        splitter.setSizes([470, 215, 215])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -430,42 +532,60 @@ class DashboardWidget(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal, panel)
 
-        # Left: Categories
-        cat_widget = QWidget(self)
-        cat_widget.setMinimumWidth(120)
-        cat_layout = QVBoxLayout(cat_widget)
-        cat_layout.setContentsMargins(0, 0, 0, 0)
-        self.series_cat_list = QListWidget(self)
-        self.series_cat_list.currentRowChanged.connect(self.on_series_category_changed)
-        
-        cat_layout.addWidget(QLabel("Categories", self))
-        cat_layout.addWidget(self.series_cat_list)
-        splitter.addWidget(cat_widget)
-
-        # Center: Series List
-        series_widget = QWidget(self)
-        series_widget.setMinimumWidth(120)
-        series_layout = QVBoxLayout(series_widget)
-        series_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.series_search = QLineEdit(self)
-        self.series_search.setPlaceholderText("🔍 Search series...")
-        self.series_search.setProperty("class", "search-bar")
-        self.series_search.textChanged.connect(self.filter_series)
-        
-        self.series_list = QListWidget(self)
-        self.series_list.itemClicked.connect(self.on_series_clicked)
-        
-        series_layout.addWidget(self.series_search)
-        series_layout.addWidget(self.series_list)
-        splitter.addWidget(series_widget)
-
-        # Right: Series Info & Episodes Navigator
+        # Left/Middle: Series Details Pane (with player)
         self.series_detail_pane = QFrame(self)
         self.series_detail_pane.setMinimumWidth(320)
         self.series_detail_pane.setProperty("class", "detail-pane")
         self.series_detail_layout = QVBoxLayout(self.series_detail_pane)
+        self.series_detail_layout.setContentsMargins(8, 8, 8, 8)
+        self.series_detail_layout.setSpacing(10)
+
+        # Toggle Layout
+        series_toggle_layout = QHBoxLayout()
+        series_toggle_layout.setContentsMargins(0, 0, 0, 0)
+        series_toggle_layout.setSpacing(5)
         
+        self.series_sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.series_sidebar_toggle_btn.setCheckable(True)
+        self.series_sidebar_toggle_btn.setChecked(True)
+        self.series_sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.series_sidebar_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.series_sidebar_toggle_btn.clicked.connect(self.toggle_series_sidebar)
+        
+        self.series_cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.series_cat_toggle_btn.setCheckable(True)
+        self.series_cat_toggle_btn.setChecked(True)
+        self.series_cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.series_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.series_cat_toggle_btn.clicked.connect(self.toggle_series_categories)
+        
+        self.series_list_toggle_btn = QPushButton("🍿 Series", self)
+        self.series_list_toggle_btn.setCheckable(True)
+        self.series_list_toggle_btn.setChecked(True)
+        self.series_list_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.series_list_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
+        self.series_list_toggle_btn.clicked.connect(self.toggle_series_list)
+        
+        series_toggle_layout.addWidget(self.series_sidebar_toggle_btn)
+        series_toggle_layout.addWidget(self.series_cat_toggle_btn)
+        series_toggle_layout.addWidget(self.series_list_toggle_btn)
+        series_toggle_layout.addStretch()
+        
+        self.series_detail_layout.addLayout(series_toggle_layout)
+
+        # Series Player Container
+        self.series_player_container = QFrame(self)
+        self.series_player_container.setMinimumHeight(240)
+        self.series_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.series_player_container.setStyleSheet("background-color: #000000; border-radius: 6px;")
+        self.series_player_layout = QVBoxLayout(self.series_player_container)
+        self.series_player_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.series_info_label = QLabel("Select an episode to play", self)
+        self.series_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.series_info_label.setProperty("class", "plot-label")
+        self.series_player_layout.addWidget(self.series_info_label)
+
         self.series_title_label = QLabel("Select a Series", self)
         self.series_title_label.setProperty("class", "pane-title")
         
@@ -487,6 +607,7 @@ class DashboardWidget(QWidget):
         self.episodes_list.itemDoubleClicked.connect(self.play_selected_episode)
         self.episodes_list.hide()
 
+        self.series_detail_layout.addWidget(self.series_player_container, stretch=9)
         self.series_detail_layout.addWidget(self.series_title_label)
         self.series_detail_layout.addWidget(self.series_desc_label)
         self.series_detail_layout.addSpacing(10)
@@ -495,9 +616,40 @@ class DashboardWidget(QWidget):
         self.series_detail_layout.addSpacing(10)
         self.series_detail_layout.addWidget(self.episodes_list_label)
         self.series_detail_layout.addWidget(self.episodes_list)
+        self.series_detail_layout.addStretch(1)
+
+        # Center: Categories
+        self.series_cat_widget = QWidget(self)
+        self.series_cat_widget.setMinimumWidth(120)
+        cat_layout = QVBoxLayout(self.series_cat_widget)
+        cat_layout.setContentsMargins(0, 0, 0, 0)
+        self.series_cat_list = QListWidget(self)
+        self.series_cat_list.currentRowChanged.connect(self.on_series_category_changed)
         
+        cat_layout.addWidget(QLabel("Categories", self))
+        cat_layout.addWidget(self.series_cat_list)
+
+        # Right: Series List
+        self.series_list_widget = QWidget(self)
+        self.series_list_widget.setMinimumWidth(120)
+        series_layout = QVBoxLayout(self.series_list_widget)
+        series_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.series_search = QLineEdit(self)
+        self.series_search.setPlaceholderText("🔍 Search series...")
+        self.series_search.setProperty("class", "search-bar")
+        self.series_search.textChanged.connect(self.filter_series)
+        
+        self.series_list = QListWidget(self)
+        self.series_list.itemClicked.connect(self.on_series_clicked)
+        
+        series_layout.addWidget(self.series_search)
+        series_layout.addWidget(self.series_list)
+
         splitter.addWidget(self.series_detail_pane)
-        splitter.setSizes([215, 215, 470])
+        splitter.addWidget(self.series_cat_widget)
+        splitter.addWidget(self.series_list_widget)
+        splitter.setSizes([470, 215, 215])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -582,43 +734,6 @@ class DashboardWidget(QWidget):
         card_layout.addStretch()
         layout.addWidget(card)
         layout.addStretch()
-
-        self.content_stack.addWidget(panel)
-
-    def setup_theater_panel(self):
-        # Full-width player view for Movies and Series playback
-        panel = QWidget(self)
-        self.theater_layout = QVBoxLayout(panel)
-        self.theater_layout.setContentsMargins(10, 10, 10, 10)
-        self.theater_layout.setSpacing(10)
-
-        # Top Bar
-        top_bar = QHBoxLayout()
-        
-        back_btn = QPushButton("⬅ Back to Browser", panel)
-        back_btn.setStyleSheet("""
-            background-color: #1a1a1f;
-            color: #f1f1f1;
-            border: 1px solid #2d2d35;
-            border-radius: 6px;
-            padding: 8px 15px;
-            font-weight: bold;
-        """)
-        back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        back_btn.clicked.connect(self.exit_theater_mode)
-        
-        self.theater_title = QLabel("", panel)
-        self.theater_title.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: bold; margin-left: 10px;")
-        
-        top_bar.addWidget(back_btn)
-        top_bar.addWidget(self.theater_title)
-        top_bar.addStretch()
-
-        # Dedicated layout where we will dock the player widget
-        self.theater_player_container = QVBoxLayout()
-        
-        self.theater_layout.addLayout(top_bar)
-        self.theater_layout.addLayout(self.theater_player_container)
         
         self.content_stack.addWidget(panel)
 
@@ -647,8 +762,8 @@ class DashboardWidget(QWidget):
 
     def show_live_tv(self):
         self.switch_tab(0)
-        # Undock player from theater and dock back to mini-player if playing live stream
-        self.dock_player_to_mini()
+        if self.player_dock_state is None:
+            self.dock_player_to_live()
         
         if not self.categories_cache["live"]:
             self.load_categories("live", self.live_cat_list)
@@ -776,8 +891,8 @@ class DashboardWidget(QWidget):
         stream_id = stream_data["stream_id"]
         channel_name = stream_data["name"]
         
-        # Dock player back to the mini container if not already there
-        self.dock_player_to_mini()
+        # Dock player back to the live container if not already there
+        self.dock_player_to_live()
         
         # Set text details
         self.live_info_title.setText(channel_name)
@@ -836,8 +951,9 @@ class DashboardWidget(QWidget):
         # Generate Movie playback URL
         stream_url = self.client.get_vod_stream_url(movie_id, container_ext)
         
-        # Launch Theater View
-        self.enter_theater_mode(movie_name, stream_url)
+        self.player_widget.stop()
+        self.dock_player_to_movie()
+        self.player_widget.play(stream_url, movie_name)
 
     # --- Series Event Handlers ---
 
@@ -948,58 +1064,89 @@ class DashboardWidget(QWidget):
         # Build stream URL
         stream_url = self.client.get_series_stream_url(ep_id, container_ext)
         
-        # Launch Theater View
-        self.enter_theater_mode(ep_name, stream_url)
+        self.player_widget.stop()
+        self.dock_player_to_series()
+        self.player_widget.play(stream_url, ep_name)
 
     # --- Docking Video Player Controller (Mini-player vs Full Theater Panel) ---
 
-    def dock_player_to_mini(self):
-        if self.player_dock_state == "mini":
+    def dock_player_to_live(self):
+        if self.player_dock_state == "live":
             return
-            
-        # Hide layout message placeholder
         self.live_channel_info_label.hide()
-        
-        # Reparent & add to mini layout
         self.mini_player_layout.addWidget(self.player_widget)
-        self.player_dock_state = "mini"
-        logging.info("VLC Player: Docked to Live TV Mini Panel")
+        self.player_dock_state = "live"
+        logging.info("VLC Player: Docked to Live TV Panel")
 
-    def enter_theater_mode(self, title, url):
-        # Stop playback if any
-        self.player_widget.stop()
-        
-        # Update title details
-        self.theater_title.setText(f"Playing: {title}")
-        
-        # Shift widget to the theater layout
-        self.theater_player_container.addWidget(self.player_widget)
-        self.player_dock_state = "theater"
-        
-        # Switch tab index to the Theater tab page (index 4)
-        self.content_stack.setCurrentIndex(4)
-        logging.info(f"VLC Player: Docked to Theater View for {title}")
-        
-        # Start Playback
-        self.player_widget.play(url, title)
+    def dock_player_to_movie(self):
+        if self.player_dock_state == "movie":
+            return
+        self.movie_info_label.hide()
+        self.movie_player_layout.addWidget(self.player_widget)
+        self.player_dock_state = "movie"
+        logging.info("VLC Player: Docked to Movie Details Panel")
 
-    def exit_theater_mode(self):
-        # Stop playback on exit
-        self.player_widget.stop()
-        
-        # Go back to whichever index was active (Movies=1, Series=2)
-        btn_live = self.nav_buttons[0]
-        btn_movies = self.nav_buttons[1]
-        btn_series = self.nav_buttons[2]
-        
-        if btn_movies.isChecked():
-            self.content_stack.setCurrentIndex(1)
-        elif btn_series.isChecked():
-            self.content_stack.setCurrentIndex(2)
-        else:
-            # Fallback
-            self.content_stack.setCurrentIndex(0)
-            self.dock_player_to_mini()
+    def dock_player_to_series(self):
+        if self.player_dock_state == "series":
+            return
+        self.series_info_label.hide()
+        self.series_player_layout.addWidget(self.player_widget)
+        self.player_dock_state = "series"
+        logging.info("VLC Player: Docked to Series Details Panel")
+
+    def toggle_sidebar(self):
+        visible = self.sidebar_toggle_btn.isChecked()
+        self.sidebar.setVisible(visible)
+        text = "▶ Menu" if not visible else "◀ Menu"
+        self.sidebar_toggle_btn.setText(text)
+        self.movie_sidebar_toggle_btn.setChecked(visible)
+        self.movie_sidebar_toggle_btn.setText(text)
+        self.series_sidebar_toggle_btn.setChecked(visible)
+        self.series_sidebar_toggle_btn.setText(text)
+
+    def toggle_movie_sidebar(self):
+        visible = self.movie_sidebar_toggle_btn.isChecked()
+        self.sidebar.setVisible(visible)
+        text = "▶ Menu" if not visible else "◀ Menu"
+        self.sidebar_toggle_btn.setChecked(visible)
+        self.sidebar_toggle_btn.setText(text)
+        self.movie_sidebar_toggle_btn.setText(text)
+        self.series_sidebar_toggle_btn.setChecked(visible)
+        self.series_sidebar_toggle_btn.setText(text)
+
+    def toggle_series_sidebar(self):
+        visible = self.series_sidebar_toggle_btn.isChecked()
+        self.sidebar.setVisible(visible)
+        text = "▶ Menu" if not visible else "◀ Menu"
+        self.sidebar_toggle_btn.setChecked(visible)
+        self.sidebar_toggle_btn.setText(text)
+        self.movie_sidebar_toggle_btn.setChecked(visible)
+        self.movie_sidebar_toggle_btn.setText(text)
+        self.series_sidebar_toggle_btn.setText(text)
+
+    def toggle_categories(self):
+        visible = self.cat_toggle_btn.isChecked()
+        self.live_cat_widget.setVisible(visible)
+
+    def toggle_channels(self):
+        visible = self.channel_toggle_btn.isChecked()
+        self.live_channel_widget.setVisible(visible)
+
+    def toggle_movie_categories(self):
+        visible = self.movie_cat_toggle_btn.isChecked()
+        self.movie_cat_widget.setVisible(visible)
+
+    def toggle_movie_list(self):
+        visible = self.movie_list_toggle_btn.isChecked()
+        self.movie_list_widget.setVisible(visible)
+
+    def toggle_series_categories(self):
+        visible = self.series_cat_toggle_btn.isChecked()
+        self.series_cat_widget.setVisible(visible)
+
+    def toggle_series_list(self):
+        visible = self.series_list_toggle_btn.isChecked()
+        self.series_list_widget.setVisible(visible)
 
     def closeEvent(self, event):
         self.abort_active_workers()
