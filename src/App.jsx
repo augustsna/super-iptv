@@ -198,7 +198,7 @@ export default function App() {
 
       // Formulate categories
       const serverCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setCategories([...new Set(['All Channels', 'Sports', ...serverCats])]);
+      setCategories([...new Set(['All Channels', '🏆 Sports', ...serverCats])]);
 
       // Parse and format streams
       const catMap = {};
@@ -384,7 +384,7 @@ export default function App() {
     let list = [];
     if (activeTab === 'live') {
       list = channels;
-      if (selectedCategory === 'Sports') {
+      if (selectedCategory === '🏆 Sports') {
         list = list.filter(ch => {
           const cat = (ch.category || '').toLowerCase();
           return cat.includes('sport') || cat.includes('esporte') || cat.includes('desporto');
