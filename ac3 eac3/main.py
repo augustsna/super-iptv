@@ -36,21 +36,21 @@ class MainWindow(QMainWindow):
         # Apply clean dark styling globally
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #0c0c0e;
+                background-color: #07090e;
             }
             QScrollBar:vertical {
                 border: none;
-                background: #121215;
+                background: #10141e;
                 width: 10px;
                 margin: 0px 0 0px 0;
             }
             QScrollBar::handle:vertical {
-                background: #2c2c35;
+                background: #1e2538;
                 min-height: 20px;
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #6c5ce7;
+                background: #00f0ff;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -61,17 +61,17 @@ class MainWindow(QMainWindow):
             }
             QScrollBar:horizontal {
                 border: none;
-                background: #121215;
+                background: #10141e;
                 height: 10px;
                 margin: 0 0px 0 0px;
             }
             QScrollBar::handle:horizontal {
-                background: #2c2c35;
+                background: #1e2538;
                 min-width: 20px;
                 border-radius: 5px;
             }
             QScrollBar::handle:horizontal:hover {
-                background: #6c5ce7;
+                background: #00f0ff;
             }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 width: 0px;

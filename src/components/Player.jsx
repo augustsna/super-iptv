@@ -15,6 +15,8 @@ export default function Player({ channel }) {
   });
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  const clickTimeoutRef = useRef(null);
   const aspectRatio = 'fit';
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({ format: 'None', resolution: '0x0', fps: 0, bitrate: 0 });
@@ -499,6 +501,7 @@ export default function Player({ channel }) {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
   }, []);
 
@@ -591,13 +594,30 @@ export default function Player({ channel }) {
           <div
             className="video-container-box"
             onClick={(e) => {
-              // Only handle clicks directly on the container, not bubbled from children
-              if (e.target !== e.currentTarget && e.target !== videoRef.current) return;
-              if (isMobile) {
-                resetControlsTimer();
-              } else {
-                togglePlay();
+              // Only handle clicks directly on the container or its transparent overlay
+              const isOverlay = e.target.classList && e.target.classList.contains('player-controls-overlay');
+              if (e.target !== e.currentTarget && e.target !== videoRef.current && !isOverlay) return;
+              
+              if (clickTimeoutRef.current) {
+                clearTimeout(clickTimeoutRef.current);
+                clickTimeoutRef.current = null;
               }
+              clickTimeoutRef.current = setTimeout(() => {
+                if (isMobile) {
+                  resetControlsTimer();
+                } else {
+                  togglePlay();
+                }
+              }, 250);
+            }}
+            onDoubleClick={(e) => {
+              const isOverlay = e.target.classList && e.target.classList.contains('player-controls-overlay');
+              if (e.target !== e.currentTarget && e.target !== videoRef.current && !isOverlay) return;
+              if (clickTimeoutRef.current) {
+                clearTimeout(clickTimeoutRef.current);
+                clickTimeoutRef.current = null;
+              }
+              toggleFullscreen();
             }}
           >
             <video
@@ -634,11 +654,25 @@ export default function Player({ channel }) {
               onClick={(e) => {
                 // Prevent click from bubbling to the container which would double-fire togglePlay
                 e.stopPropagation();
-                if (isMobile) {
-                  resetControlsTimer();
-                } else {
-                  togglePlay();
+                if (clickTimeoutRef.current) {
+                  clearTimeout(clickTimeoutRef.current);
+                  clickTimeoutRef.current = null;
                 }
+                clickTimeoutRef.current = setTimeout(() => {
+                  if (isMobile) {
+                    resetControlsTimer();
+                  } else {
+                    togglePlay();
+                  }
+                }, 250);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (clickTimeoutRef.current) {
+                  clearTimeout(clickTimeoutRef.current);
+                  clickTimeoutRef.current = null;
+                }
+                toggleFullscreen();
               }}
             />
 

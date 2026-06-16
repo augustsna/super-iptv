@@ -53,22 +53,22 @@ class DashboardWidget(QWidget):
         self.setObjectName("DashboardWidget")
         self.setStyleSheet("""
             #DashboardWidget {
-                background-color: #0c0c0e;
+                background-color: #07090e;
             }
             /* Sidebar Styling */
             QFrame#sidebar {
-                background-color: #0d0d0f;
-                border-right: 1px solid #1c1c22;
+                background-color: #0a0c14;
+                border-right: 1px solid #1c2133;
             }
             QLabel#logoText {
-                color: #6c5ce7;
+                color: #00f0ff;
                 font-size: 16px;
                 font-weight: bold;
                 padding: 15px 5px;
             }
             QPushButton.nav-btn {
                 background-color: transparent;
-                color: #8f8f9e;
+                color: #9ca3af;
                 border: none;
                 border-left: 3px solid transparent;
                 padding: 12px 15px;
@@ -78,21 +78,21 @@ class DashboardWidget(QWidget):
             }
             QPushButton.nav-btn:hover {
                 color: #ffffff;
-                background-color: #16161a;
+                background-color: #151a25;
             }
             QPushButton.nav-btn.active {
-                color: #6c5ce7;
-                background-color: #16161a;
-                border-left: 3px solid #6c5ce7;
+                color: #00f0ff;
+                background-color: #151a25;
+                border-left: 3px solid #00f0ff;
             }
             /* Main Content Panels */
             QFrame#contentPanel {
-                background-color: #0c0c0e;
+                background-color: #07090e;
             }
             QListWidget {
-                background-color: #121215;
+                background-color: #10141e;
                 color: #ffffff;
-                border: 1px solid #202026;
+                border: 1px solid #1e2538;
                 border-radius: 6px;
                 padding: 5px;
                 outline: 0;
@@ -103,29 +103,32 @@ class DashboardWidget(QWidget):
                 margin-bottom: 2px;
             }
             QListWidget::item:hover {
-                background-color: #1b1b22;
-                color: #6c5ce7;
+                background-color: #1a2030;
+                color: #00f0ff;
             }
             QListWidget::item:selected {
-                background-color: #6c5ce7;
-                color: #ffffff;
+                background-color: rgba(0, 240, 255, 0.15);
+                color: #00f0ff;
+                font-weight: bold;
+                border-left: 3px solid #00f0ff;
+                padding-left: 7px;
             }
             /* Search input */
             QLineEdit.search-bar {
-                background-color: #121215;
+                background-color: #10141e;
                 color: #ffffff;
-                border: 1px solid #202026;
+                border: 1px solid #1e2538;
                 border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 13px;
             }
             QLineEdit.search-bar:focus {
-                border-color: #6c5ce7;
+                border-color: #00f0ff;
             }
             /* Detail Panes */
             QFrame.detail-pane {
-                background-color: #121215;
-                border: 1px solid #202026;
+                background-color: #10141e;
+                border: 1px solid #1e2538;
                 border-radius: 8px;
                 padding: 15px;
             }
@@ -135,11 +138,11 @@ class DashboardWidget(QWidget):
                 font-weight: bold;
             }
             QLabel.meta-label {
-                color: #8f8f9e;
+                color: #9ca3af;
                 font-size: 12px;
             }
             QLabel.plot-label {
-                color: #c5c5d2;
+                color: #d1d5db;
                 font-size: 13px;
                 line-height: 1.4;
             }
@@ -160,7 +163,7 @@ class DashboardWidget(QWidget):
             }
             /* QSplitter handle */
             QSplitter::handle {
-                background-color: #1c1c22;
+                background-color: #1c2133;
                 width: 2px;
             }
             /* Custom Scrollbars */
@@ -176,7 +179,7 @@ class DashboardWidget(QWidget):
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #6c5ce7;
+                background: #00f0ff;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -197,7 +200,7 @@ class DashboardWidget(QWidget):
                 border-radius: 5px;
             }
             QScrollBar::handle:horizontal:hover {
-                background: #6c5ce7;
+                background: #00f0ff;
             }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 width: 0px;
@@ -229,26 +232,25 @@ class DashboardWidget(QWidget):
         brand_layout.setSpacing(10)
         
         logo_icon = QLabel(brand_widget)
-        icon_path = os.path.join(os.path.dirname(__file__), "favicon1.png")
+        icon_path = os.path.join(os.path.dirname(__file__), "favicon.png")
         logo_icon.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         logo = QLabel("Super Stream", brand_widget)
         logo.setObjectName("logoText")
         logo.setStyleSheet("padding: 0px;")
         
-        #brand_layout.addWidget(logo_icon)
+        brand_layout.addWidget(logo_icon)
         brand_layout.addWidget(logo)
         brand_layout.addStretch()
         
         sidebar_layout.addWidget(brand_widget)
-
+        
         # Navigation Buttons
         self.nav_buttons = []
         nav_items = [
             ("Live TV", self.show_live_tv, "tv"),
             ("Movies", self.show_movies, "film"),
             ("Series", self.show_series, "clapperboard"),
-            ("Settings", self.show_settings, "settings"),
         ]
         
         import os
@@ -270,6 +272,68 @@ class DashboardWidget(QWidget):
             self.nav_buttons.append(btn)
 
         sidebar_layout.addStretch()
+
+        # Settings button
+        settings_btn = QPushButton("  Settings", self.sidebar)
+        settings_icon_path = os.path.join(os.path.dirname(__file__), "icons", "settings.svg")
+        settings_btn.setIcon(QIcon(settings_icon_path))
+        settings_btn.setIconSize(QSize(18, 18))
+        settings_btn.setCheckable(True)
+        settings_btn.setObjectName("nav_3")
+        settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        settings_btn.setStyleSheet("text-align: left; padding-left: 20px;")
+        settings_btn.clicked.connect(self.show_settings)
+        settings_btn.setProperty("class", "nav-btn")
+        sidebar_layout.addWidget(settings_btn)
+        self.nav_buttons.append(settings_btn)
+
+        # Expiry Badge
+        exp_date = self.client.user_info.get("exp_date")
+        if exp_date:
+            try:
+                exp_timestamp = int(exp_date)
+                if exp_timestamp == 0:
+                    exp_text = "Expires: Unlimited"
+                    exp_remain = ""
+                    color = "#05ffc5"
+                else:
+                    import time, datetime
+                    now = int(time.time())
+                    diff = exp_timestamp - now
+                    dt = datetime.datetime.fromtimestamp(exp_timestamp)
+                    exp_text = f"Expires: {dt.strftime('%m/%d/%Y')}"
+                    if diff <= 0:
+                        exp_text = f"Expired ({dt.strftime('%m/%d/%Y')})"
+                        exp_remain = "Expired"
+                        color = "#f87171"
+                    else:
+                        days = diff // 86400
+                        hours = (diff % 86400) // 3600
+                        minutes = (diff % 3600) // 60
+                        if days > 0:
+                            exp_remain = f"{days}d {hours}h {minutes}m remaining"
+                        else:
+                            exp_remain = f"{hours}h {minutes}m remaining"
+                        color = "#05ffc5" if days > 7 else "#f87171"
+                
+                expiry_widget = QWidget(self.sidebar)
+                expiry_layout = QVBoxLayout(expiry_widget)
+                expiry_layout.setContentsMargins(20, 10, 15, 10)
+                expiry_layout.setSpacing(2)
+                
+                exp_label = QLabel(exp_text, expiry_widget)
+                exp_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+                expiry_layout.addWidget(exp_label)
+                
+                if exp_remain:
+                    remain_label = QLabel(f"● {exp_remain}", expiry_widget)
+                    remain_label.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold;")
+                    expiry_layout.addWidget(remain_label)
+                
+                sidebar_layout.addWidget(expiry_widget)
+            except Exception as e:
+                pass
 
         # Logout button
         logout_btn = QPushButton("  Logout", self.sidebar)
@@ -309,7 +373,7 @@ class DashboardWidget(QWidget):
         cat_layout.setContentsMargins(0, 0, 0, 0)
         
         cat_title = QLabel("Categories", self)
-        cat_title.setStyleSheet("color: #8f8f9e; font-weight: bold; margin-bottom: 5px;")
+        cat_title.setStyleSheet("color: #9ca3af; font-weight: bold; margin-bottom: 5px;")
         self.live_cat_list = QListWidget(self)
         self.live_cat_list.currentRowChanged.connect(self.on_live_category_changed)
         
@@ -357,23 +421,23 @@ class DashboardWidget(QWidget):
         self.sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sidebar_toggle_btn.setStyleSheet("""
             QPushButton {
-                background-color: #1a1a24;
+                background-color: #141824;
                 color: #e0e0e2;
-                border: 1px solid #2d2d3d;
+                border: 1px solid #1e2538;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 11px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: rgba(108, 92, 231, 0.2);
-                border-color: #6c5ce7;
+                background-color: rgba(0, 240, 255, 0.2);
+                border-color: #00f0ff;
                 color: #ffffff;
             }
             QPushButton:checked {
-                color: #6c5ce7;
-                border-color: #6c5ce7;
-                background-color: rgba(108, 92, 231, 0.1);
+                color: #00f0ff;
+                border-color: #00f0ff;
+                background-color: rgba(0, 240, 255, 0.1);
             }
         """)
         self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
@@ -424,7 +488,7 @@ class DashboardWidget(QWidget):
         self.live_logo_label = QLabel(self)
         self.live_logo_label.setFixedSize(80, 80)
         self.live_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.live_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.live_logo_label.setStyleSheet("border: 1px solid #1e2538; border-radius: 6px; background-color: #10141e; font-size: 36px; color: #9ca3af;")
         self.live_logo_label.setText("")
         self.live_logo_label.setStyleSheet("border: none; background-color: transparent;")
         self.live_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "tv_large.svg")))
@@ -442,7 +506,7 @@ class DashboardWidget(QWidget):
         self.live_info_desc = QLabel("", self)
         self.live_info_desc.setWordWrap(True)
         self.live_info_desc.setProperty("class", "plot-label")
-        self.live_info_desc.setStyleSheet("color: #8f8f9e; font-size: 12px;")
+        self.live_info_desc.setStyleSheet("color: #9ca3af; font-size: 12px;")
 
         live_text_layout.addWidget(self.live_info_title)
         live_text_layout.addWidget(self.live_info_desc)
@@ -543,7 +607,7 @@ class DashboardWidget(QWidget):
         self.movie_logo_label = QLabel(self)
         self.movie_logo_label.setFixedSize(80, 120)
         self.movie_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.movie_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.movie_logo_label.setStyleSheet("border: 1px solid #1e2538; border-radius: 6px; background-color: #10141e; font-size: 36px; color: #9ca3af;")
         self.movie_logo_label.setText("")
         self.movie_logo_label.setStyleSheet("border: none; background-color: transparent;")
         self.movie_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "film_large.svg")))
@@ -564,7 +628,7 @@ class DashboardWidget(QWidget):
         self.movie_desc_label = QLabel("", self)
         self.movie_desc_label.setWordWrap(True)
         self.movie_desc_label.setProperty("class", "plot-label")
-        self.movie_desc_label.setStyleSheet("color: #c5c5d2; font-size: 12px;")
+        self.movie_desc_label.setStyleSheet("color: #d1d5db; font-size: 12px;")
 
         movie_text_layout.addWidget(self.movie_title_label)
         movie_text_layout.addWidget(self.movie_rating_label)
@@ -703,7 +767,7 @@ class DashboardWidget(QWidget):
         self.series_logo_label = QLabel(self)
         self.series_logo_label.setFixedSize(80, 120)
         self.series_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.series_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.series_logo_label.setStyleSheet("border: 1px solid #1e2538; border-radius: 6px; background-color: #10141e; font-size: 36px; color: #9ca3af;")
         self.series_logo_label.setText("")
         self.series_logo_label.setStyleSheet("border: none; background-color: transparent;")
         self.series_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "clapperboard_large.svg")))
@@ -721,7 +785,7 @@ class DashboardWidget(QWidget):
         self.series_desc_label = QLabel("", self)
         self.series_desc_label.setWordWrap(True)
         self.series_desc_label.setProperty("class", "plot-label")
-        self.series_desc_label.setStyleSheet("color: #c5c5d2; font-size: 12px;")
+        self.series_desc_label.setStyleSheet("color: #d1d5db; font-size: 12px;")
 
         series_text_layout.addWidget(self.series_title_label)
         series_text_layout.addWidget(self.series_desc_label)
@@ -807,8 +871,8 @@ class DashboardWidget(QWidget):
         card.setObjectName("settingsCard")
         card.setStyleSheet("""
             #settingsCard {
-                background-color: #121215;
-                border: 1px solid #202026;
+                background-color: #10141e;
+                border: 1px solid #1e2538;
                 border-radius: 12px;
                 padding: 30px;
             }
@@ -818,7 +882,7 @@ class DashboardWidget(QWidget):
                 font-weight: bold;
             }
             QLabel#settingsKey {
-                color: #8f8f9e;
+                color: #9ca3af;
                 font-size: 13px;
                 font-weight: bold;
             }
@@ -897,7 +961,7 @@ class DashboardWidget(QWidget):
         
         self.batch_combo = QComboBox(card)
         self.batch_combo.addItems(["50 items", "100 items", "200 items", "500 items", "1000 items", "Show All"])
-        self.batch_combo.setStyleSheet("color: white; background-color: #202026; padding: 5px; border-radius: 4px; min-width: 120px;")
+        self.batch_combo.setStyleSheet("color: white; background-color: #1e2538; padding: 5px; border-radius: 4px; min-width: 120px;")
         
         batch_layout.addWidget(batch_label)
         batch_layout.addWidget(self.batch_combo)
@@ -905,7 +969,7 @@ class DashboardWidget(QWidget):
         card_layout.addLayout(batch_layout)
         
         batch_desc = QLabel("Controls the number of channels/VOD items loaded per page.", card)
-        batch_desc.setStyleSheet("color: #8f8f9e; font-size: 11px;")
+        batch_desc.setStyleSheet("color: #9ca3af; font-size: 11px;")
         card_layout.addWidget(batch_desc)
         
         card_layout.addSpacing(25)
@@ -933,7 +997,10 @@ class DashboardWidget(QWidget):
         # Audio Codec support info
         codec_info = QLabel(" Dolby Audio AC3 & EAC3 decoders are loaded and fully supported.", card)
         codec_info.setStyleSheet("color: #00d2d3; font-weight: bold; border: 1px solid #00d2d3; border-radius: 6px; padding: 10px; background-color: rgba(0, 210, 211, 0.05);")
-        card_layout.addWidget(codec_info)
+        codec_layout = QHBoxLayout()
+        codec_layout.addWidget(codec_info)
+        codec_layout.addStretch()
+        card_layout.addLayout(codec_layout)
 
         card_layout.addStretch()
         layout.addWidget(card)
@@ -1011,8 +1078,12 @@ class DashboardWidget(QWidget):
         
         # Capture variables for callback via lambda
         def on_finished(categories):
+            try:
+                list_widget.clear()
+            except RuntimeError:
+                return # Widget deleted, user likely navigated away
+
             list_widget.setEnabled(True)
-            list_widget.clear()
             self.categories_cache[mode] = categories
             
             if not categories:
@@ -1028,7 +1099,7 @@ class DashboardWidget(QWidget):
             if mode == "live":
                 sports_item = QListWidgetItem("🏆 Sports")
                 sports_item.setData(Qt.ItemDataRole.UserRole, "__sports__")
-                sports_item.setForeground(QColor("#6c5ce7"))
+                sports_item.setForeground(QColor("#00f0ff"))
                 sports_item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
                 list_widget.addItem(sports_item)
             
@@ -1056,8 +1127,12 @@ class DashboardWidget(QWidget):
         self.stream_worker = FetchStreamsWorker(self.client, mode, category_id)
 
         def on_finished(streams):
-            list_widget.setEnabled(True)
-            list_widget.clear()
+            try:
+                list_widget.setEnabled(True)
+                list_widget.clear()
+            except RuntimeError:
+                return # Widget deleted, user likely navigated away
+                
             self.streams_data[mode] = streams
             self.streams_loaded_count[mode] = 0
             
@@ -1469,7 +1544,7 @@ class DashboardWidget(QWidget):
     def load_logo_image(self, url, label_widget, default_emoji="📺"):
         # Reset and display centered default emoji placeholder
         label_widget.setText(default_emoji)
-        label_widget.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        label_widget.setStyleSheet("border: 1px solid #1e2538; border-radius: 6px; background-color: #10141e; font-size: 36px; color: #9ca3af;")
         label_widget.setPixmap(QPixmap())
         
         if not url:
@@ -1496,7 +1571,7 @@ class DashboardWidget(QWidget):
                 )
                 label_widget.setPixmap(scaled)
                 label_widget.setText("") # Clear emoji
-                label_widget.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215;")
+                label_widget.setStyleSheet("border: 1px solid #1e2538; border-radius: 6px; background-color: #10141e;")
             else:
                 logging.warning("Logo download succeeded but image format is invalid.")
         else:

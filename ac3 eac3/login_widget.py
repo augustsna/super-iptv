@@ -31,11 +31,11 @@ class LoginWidget(QWidget):
         # Global widget background
         self.setStyleSheet("""
             #LoginWidget {
-                background-color: #0c0c0e;
+                background-color: #07090e;
             }
             QFrame#card {
-                background-color: #16161a;
-                border: 1px solid #282830;
+                background-color: #10141e;
+                border: 1px solid #1e2538;
                 border-radius: 16px;
             }
             QLabel#title {
@@ -45,20 +45,20 @@ class LoginWidget(QWidget):
                 margin-bottom: 5px;
             }
             QLabel#subtitle {
-                color: #8f8f9e;
+                color: #9ca3af;
                 font-size: 13px;
                 margin-bottom: 20px;
             }
             QLabel#fieldLabel {
-                color: #c5c5d2;
+                color: #d1d5db;
                 font-size: 12px;
                 font-weight: bold;
                 margin-bottom: 4px;
             }
             QLineEdit {
-                background-color: #1e1e24;
+                background-color: #0a0c14;
                 color: #ffffff;
-                border: 1px solid #2d2d38;
+                border: 1px solid #1e2538;
                 border-radius: 8px;
                 padding: 10px 14px;
                 font-size: 14px;
@@ -67,7 +67,7 @@ class LoginWidget(QWidget):
             }
             QLineEdit:focus {
                 border-color: #00f0ff;
-                background-color: #22222b;
+                background-color: #151a25;
             }
             QPushButton#loginBtn {
                 background-color: #00f0ff;
@@ -87,7 +87,7 @@ class LoginWidget(QWidget):
             QPushButton#adminBtn {
                 background: none;
                 border: none;
-                color: #8f8f9e;
+                color: #9ca3af;
                 font-size: 11px;
                 font-weight: bold;
                 text-transform: uppercase;
@@ -183,7 +183,7 @@ class LoginWidget(QWidget):
         # Divider line above Admin button
         admin_divider = QFrame(self)
         admin_divider.setFrameShape(QFrame.Shape.HLine)
-        admin_divider.setStyleSheet("background-color: #282830; margin-top: 15px; margin-bottom: 5px;")
+        admin_divider.setStyleSheet("background-color: #1e2538; margin-top: 15px; margin-bottom: 5px;")
         card_layout.addWidget(admin_divider)
 
         # Admin Panel Link Button
@@ -245,7 +245,7 @@ class LoginWidget(QWidget):
             self.status_label.setText(f"⚠ {message}")
 
     def start_sync(self):
-        self.status_label.setStyleSheet("color: #8f8f9e;")
+        self.status_label.setStyleSheet("color: #9ca3af;")
         self.status_label.setText("Syncing with Ubuntu server...")
         self.set_ui_enabled(False)
         
@@ -299,21 +299,21 @@ class AdminPanelDialog(QDialog):
                 border: 1px solid #202026;
             }
             QLabel {
-                color: #c5c5d2;
+                color: #d1d5db;
                 font-size: 11px;
                 font-weight: bold;
             }
             QLineEdit {
-                background-color: #1e1e24;
+                background-color: #0a0c14;
                 color: #ffffff;
-                border: 1px solid #2d2d38;
+                border: 1px solid #1e2538;
                 border-radius: 8px;
                 padding: 10px;
                 font-size: 13px;
             }
             QLineEdit:focus {
                 border-color: #00f0ff;
-                background-color: #22222b;
+                background-color: #151a25;
             }
             QPushButton {
                 background-color: #00f0ff;
@@ -332,7 +332,7 @@ class AdminPanelDialog(QDialog):
             }
             QPushButton:disabled {
                 background-color: #2b2b35;
-                color: #8f8f9e;
+                color: #9ca3af;
             }
         """)
 
@@ -442,7 +442,7 @@ class AdminPanelDialog(QDialog):
             self.auth_status.setText("⚠ Please enter admin password.")
             return
 
-        self.auth_status.setStyleSheet("color: #8f8f9e;")
+        self.auth_status.setStyleSheet("color: #9ca3af;")
         self.auth_status.setText("Authenticating...")
         self.auth_btn.setEnabled(False)
         self.admin_pass_input.setEnabled(False)
@@ -480,7 +480,7 @@ class AdminPanelDialog(QDialog):
             self.config_status.setText("⚠ Please fill in all default config fields.")
             return
 
-        self.config_status.setStyleSheet("color: #8f8f9e;")
+        self.config_status.setStyleSheet("color: #9ca3af;")
         self.config_status.setText("Saving config to server...")
         self.save_btn.setEnabled(False)
 

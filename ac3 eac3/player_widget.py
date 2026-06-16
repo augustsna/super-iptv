@@ -22,6 +22,12 @@ class PlayerWidget(QWidget):
         self.vlc_instance = vlc.Instance("--no-mouse-events", "--no-video-title-show")
         self.media_player = self.vlc_instance.media_player_new()
         
+        try:
+            self.media_player.video_set_mouse_input(False)
+            self.media_player.video_set_key_input(False)
+        except AttributeError:
+            pass
+        
         self.is_seeking = False
         self.tracks_loaded = False
         self.stream_url = ""
@@ -32,6 +38,10 @@ class PlayerWidget(QWidget):
         self.prev_volume = 70
         self.controls_visible = True
         self.settings_menu_open = False
+        
+        self.click_timer = QTimer(self)
+        self.click_timer.setSingleShot(True)
+        self.click_timer.timeout.connect(self.toggle_play)
         
         self.setup_ui()
         self.setup_timer()
@@ -74,7 +84,6 @@ class PlayerWidget(QWidget):
         # Background color for video frame
         palette = self.video_frame.palette()
         palette.setColor(QPalette.ColorRole.Window, QColor(0, 0, 0))
-        self.video_frame.setPalette(palette)
         self.video_frame.setAutoFillBackground(True)
         self.main_layout.addWidget(self.video_frame)
 
@@ -634,11 +643,13 @@ class PlayerWidget(QWidget):
         if obj == self.video_frame:
             if event.type() == QEvent.Type.MouseButtonDblClick:
                 if event.button() == Qt.MouseButton.LeftButton:
+                    self.click_timer.stop() # Cancel the single click action
                     self.toggle_fullscreen()
                     return True
             elif event.type() == QEvent.Type.MouseButtonPress:
                 if event.button() == Qt.MouseButton.LeftButton:
-                    self.toggle_play()
+                    # Delay the play toggle to see if it's a double click
+                    self.click_timer.start(250)
                     return True
             elif event.type() == QEvent.Type.MouseMove:
                 self.show_controls()
