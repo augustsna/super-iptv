@@ -33,6 +33,7 @@ class DashboardWidget(QWidget):
         
         # Cache for loaded categories and streams to avoid unnecessary network queries
         self.categories_cache = {"live": [], "vod": [], "series": []}
+        self.streams_cache = {"live": {}, "vod": {}, "series": {}}
         self.current_streams = []
         
         # Track active workers to avoid race conditions
@@ -355,7 +356,7 @@ class DashboardWidget(QWidget):
                 neon_dot.setStyleSheet("color: #10b981; font-size: 10px;")
                 
                 portal_label = QLabel("XTREAM PORTAL", portal_row)
-                portal_label.setStyleSheet("color: #6b7280; font-size: 9px; font-weight: 900; letter-spacing: 1px;")
+                portal_label.setStyleSheet("color: #d1d5db; font-size: 9px; font-weight: 900; letter-spacing: 1px;")
                 
                 portal_layout.addWidget(neon_dot)
                 portal_layout.addWidget(portal_label)
@@ -377,9 +378,22 @@ class DashboardWidget(QWidget):
                 expiry_layout.addWidget(exp_label)
                 
                 if exp_remain:
-                    remain_label = QLabel(exp_remain, expiry_widget)
-                    remain_label.setStyleSheet("color: #6b7280; font-size: 11px; font-weight: bold;")
-                    expiry_layout.addWidget(remain_label)
+                    remain_row = QWidget(expiry_widget)
+                    remain_layout = QHBoxLayout(remain_row)
+                    remain_layout.setContentsMargins(0, 0, 0, 0)
+                    remain_layout.setSpacing(4)
+                    
+                    remain_dot = QLabel("●", remain_row)
+                    remain_dot.setStyleSheet(f"color: {color}; font-size: 9px;")
+                    
+                    remain_label = QLabel(exp_remain, remain_row)
+                    remain_label.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold;")
+                    
+                    remain_layout.addWidget(remain_dot)
+                    remain_layout.addWidget(remain_label)
+                    remain_layout.addStretch()
+                    
+                    expiry_layout.addWidget(remain_row)
                 
                 sidebar_layout.addWidget(expiry_widget)
             except Exception as e:
@@ -1209,6 +1223,19 @@ class DashboardWidget(QWidget):
 
     def load_streams(self, mode, category_id, list_widget):
         list_widget.clear()
+        
+        # Check cache first to load instantly
+        if category_id in self.streams_cache[mode]:
+            streams = self.streams_cache[mode][category_id]
+            self.streams_data[mode] = streams
+            self.streams_loaded_count[mode] = 0
+            list_widget.setEnabled(True)
+            if not streams:
+                list_widget.addItem("No streams available.")
+                return
+            self.show_more_streams(mode, list_widget)
+            return
+
         list_widget.addItem("Loading streams...")
         list_widget.setEnabled(False)
         
@@ -1228,6 +1255,9 @@ class DashboardWidget(QWidget):
                 
             self.streams_data[mode] = streams
             self.streams_loaded_count[mode] = 0
+            
+            # Cache the loaded streams
+            self.streams_cache[mode][category_id] = streams
             
             if not streams:
                 list_widget.addItem("No streams available.")
@@ -1254,6 +1284,27 @@ class DashboardWidget(QWidget):
     def load_sports_streams(self, keywords):
         """Fetch all live streams, then filter client-side by sport-related keywords."""
         self.live_channel_list.clear()
+        
+        # Check cache (all channels fetched with category_id=None)
+        if None in self.streams_cache["live"]:
+            streams = self.streams_cache["live"][None]
+            self.live_channel_list.setEnabled(True)
+            matched = [
+                s for s in streams
+                if any(
+                    kw in (s.get("category_name", "") + " " + s.get("name", "")).lower()
+                    for kw in keywords
+                )
+            ]
+            if not matched:
+                self.live_channel_list.addItem("No sports channels found.")
+                return
+                
+            self.streams_data["live"] = matched
+            self.streams_loaded_count["live"] = 0
+            self.show_more_streams("live", self.live_channel_list)
+            return
+
         self.live_channel_list.addItem("Loading sports channels...")
         self.live_channel_list.setEnabled(False)
         
@@ -1267,6 +1318,9 @@ class DashboardWidget(QWidget):
         def on_finished(streams):
             self.live_channel_list.setEnabled(True)
             self.live_channel_list.clear()
+            
+            # Cache the loaded streams
+            self.streams_cache["live"][None] = streams
             
             # Filter by any matching keyword in category_name or stream name
             matched = [
