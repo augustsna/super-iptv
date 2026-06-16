@@ -214,6 +214,23 @@ class PlayerWidget(QWidget):
         self.controls_animation = QPropertyAnimation(self.controls_opacity_effect, b"opacity")
         self.controls_animation.setDuration(250)
 
+        # Create height animations for smooth layout resizes
+        self.header_height_animation = QPropertyAnimation(self.header_panel, b"maximumHeight")
+        self.header_height_animation.setDuration(250)
+
+        self.controls_height_animation = QPropertyAnimation(self.controls_panel, b"maximumHeight")
+        self.controls_height_animation.setDuration(250)
+
+        # Initialize maximum heights for layout
+        self.header_panel.setMaximumHeight(40)
+        self.controls_panel.setMaximumHeight(self.get_target_controls_height())
+
+    def get_target_controls_height(self):
+        if hasattr(self, 'controls_layout') and self.controls_layout:
+            h = self.controls_layout.sizeHint().height()
+            return h if h > 0 else 80
+        return 80
+
     def update_styles(self):
         # Remove borders and rounded corners when in fullscreen mode to make it completely full screen
         radius = "0px" if self.fullscreen_mode else "12px"
@@ -524,11 +541,11 @@ class PlayerWidget(QWidget):
             action.setChecked(abs(current_speed - s) < 0.05)
             action.triggered.connect(lambda checked, val=s: self.set_playback_speed(val))
 
-        # Display the menu positioned above settings button
+        # Display the menu positioned dynamically centered directly above settings button
         button_pos = self.settings_btn.mapToGlobal(QPoint(0, 0))
-        # Estimate menu height (around 140px)
-        menu_x = button_pos.x()
-        menu_y = button_pos.y() - 140
+        menu_size = menu.sizeHint()
+        menu_x = button_pos.x() + (self.settings_btn.width() - menu_size.width()) // 2
+        menu_y = button_pos.y() - menu_size.height() - 6
         
         menu.exec(QPoint(menu_x, menu_y))
         
@@ -645,9 +662,13 @@ class PlayerWidget(QWidget):
             self.header_panel.show()
             self.controls_panel.show()
             
-            # Stop any running fade-out animation
+            # Stop any running animations
             self.header_animation.stop()
             self.controls_animation.stop()
+            if hasattr(self, 'header_height_animation'):
+                self.header_height_animation.stop()
+            if hasattr(self, 'controls_height_animation'):
+                self.controls_height_animation.stop()
             
             # Start fade-in animation
             self.header_animation.setStartValue(self.header_opacity_effect.opacity())
@@ -657,6 +678,17 @@ class PlayerWidget(QWidget):
             self.controls_animation.setStartValue(self.controls_opacity_effect.opacity())
             self.controls_animation.setEndValue(1.0)
             self.controls_animation.start()
+
+            # Start height expand animation
+            if hasattr(self, 'header_height_animation'):
+                self.header_height_animation.setStartValue(self.header_panel.height())
+                self.header_height_animation.setEndValue(40)
+                self.header_height_animation.start()
+            
+            if hasattr(self, 'controls_height_animation'):
+                self.controls_height_animation.setStartValue(self.controls_panel.height())
+                self.controls_height_animation.setEndValue(self.get_target_controls_height())
+                self.controls_height_animation.start()
             
             self.controls_visible = True
             
@@ -671,9 +703,13 @@ class PlayerWidget(QWidget):
         if not self.fullscreen_mode:
             return
         if self.media_player.get_state() == vlc.State.Playing and self.controls_visible:
-            # Stop any running fade-in animation
+            # Stop any running animations
             self.header_animation.stop()
             self.controls_animation.stop()
+            if hasattr(self, 'header_height_animation'):
+                self.header_height_animation.stop()
+            if hasattr(self, 'controls_height_animation'):
+                self.controls_height_animation.stop()
             
             # Start fade-out animation
             self.header_animation.setStartValue(self.header_opacity_effect.opacity())
@@ -682,6 +718,17 @@ class PlayerWidget(QWidget):
             self.controls_animation.setStartValue(self.controls_opacity_effect.opacity())
             self.controls_animation.setEndValue(0.0)
             
+            # Start height collapse animation
+            if hasattr(self, 'header_height_animation'):
+                self.header_height_animation.setStartValue(self.header_panel.height())
+                self.header_height_animation.setEndValue(0)
+                self.header_height_animation.start()
+
+            if hasattr(self, 'controls_height_animation'):
+                self.controls_height_animation.setStartValue(self.controls_panel.height())
+                self.controls_height_animation.setEndValue(0)
+                self.controls_height_animation.start()
+
             # Disconnect previous finished connections
             try:
                 self.header_animation.finished.disconnect()
