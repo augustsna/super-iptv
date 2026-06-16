@@ -40,101 +40,7 @@ class PlayerWidget(QWidget):
         self.setObjectName("PlayerWidget")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
-        # Premium dark styling with smooth transitions and glow effects
-        self.setStyleSheet("""
-            #PlayerWidget {
-                background-color: #08080a;
-                border: 1px solid #1c1c24;
-                border-radius: 12px;
-            }
-            #header_panel {
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.95), stop:1 rgba(13, 13, 15, 0.7));
-                border-bottom: 1px solid #1c1c24;
-                border-top-left-radius: 12px;
-                border-top-right-radius: 12px;
-            }
-            #controls_panel {
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.7), stop:1 rgba(13, 13, 15, 0.95));
-                border-top: 1px solid #1c1c24;
-                border-bottom-left-radius: 12px;
-                border-bottom-right-radius: 12px;
-            }
-            QLabel {
-                color: #e0e0e2;
-                font-family: "Segoe UI", sans-serif;
-                font-size: 12px;
-            }
-            #title_label {
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton {
-                background-color: rgba(30, 30, 38, 0.6);
-                color: #ffffff;
-                border: 1px solid #2d2d3d;
-                border-radius: 6px;
-                padding: 6px 12px;
-                font-weight: bold;
-                font-family: "Segoe UI", sans-serif;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background-color: rgba(108, 92, 231, 0.2);
-                border-color: #00f0ff;
-                color: #00f0ff;
-            }
-            QPushButton:pressed {
-                background-color: #00f0ff;
-                color: #000000;
-            }
-            #play_btn {
-                background-color: #6c5ce7;
-                color: #ffffff;
-                border: none;
-                border-radius: 16px;
-                min-width: 32px;
-                max-width: 32px;
-                min-height: 32px;
-                max-height: 32px;
-                font-size: 14px;
-            }
-            #play_btn:hover {
-                background-color: #00f0ff;
-                color: #000000;
-                border: none;
-            }
-            #play_btn:pressed {
-                background-color: #00b5cc;
-            }
-            QSlider::groove:horizontal {
-                height: 4px;
-                background: #23232e;
-                border-radius: 2px;
-            }
-            QSlider::sub-page:horizontal {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6c5ce7, stop:1 #00f0ff);
-                border-radius: 2px;
-            }
-            QSlider::handle:horizontal {
-                background: #ffffff;
-                width: 10px;
-                height: 10px;
-                margin-top: -3px;
-                margin-bottom: -3px;
-                border-radius: 5px;
-                border: 1px solid #00f0ff;
-            }
-            QSlider::handle:horizontal:hover {
-                background: #00f0ff;
-                border-color: #ffffff;
-                width: 12px;
-                height: 12px;
-                margin-top: -4px;
-                margin-bottom: -4px;
-                border-radius: 6px;
-            }
-        """)
+        self.update_styles()
 
         # Main Layout
         self.main_layout = QVBoxLayout(self)
@@ -281,6 +187,106 @@ class PlayerWidget(QWidget):
         else:
             if sys.platform.startswith("linux"):
                 self.media_player.set_xwindow(int(self.video_frame.winId()))
+
+    def update_styles(self):
+        # Remove borders and rounded corners when in fullscreen mode to make it completely full screen
+        radius = "0px" if self.fullscreen_mode else "12px"
+        border = "none" if self.fullscreen_mode else "1px solid #1c1c24"
+        
+        self.setStyleSheet(f"""
+            #PlayerWidget {{
+                background-color: #08080a;
+                border: {border};
+                border-radius: {radius};
+            }}
+            #header_panel {{
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.95), stop:1 rgba(13, 13, 15, 0.7));
+                border-bottom: 1px solid #1c1c24;
+                border-top-left-radius: {radius};
+                border-top-right-radius: {radius};
+            }}
+            #controls_panel {{
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.7), stop:1 rgba(13, 13, 15, 0.95));
+                border-top: 1px solid #1c1c24;
+                border-bottom-left-radius: {radius};
+                border-bottom-right-radius: {radius};
+            }}
+            QLabel {{
+                color: #e0e0e2;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 12px;
+            }}
+            #title_label {{
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton {{
+                background-color: rgba(30, 30, 38, 0.6);
+                color: #ffffff;
+                border: 1px solid #2d2d3d;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(108, 92, 231, 0.2);
+                border-color: #00f0ff;
+                color: #00f0ff;
+            }}
+            QPushButton:pressed {{
+                background-color: #00f0ff;
+                color: #000000;
+            }}
+            #play_btn {{
+                background-color: #6c5ce7;
+                color: #ffffff;
+                border: none;
+                border-radius: 16px;
+                min-width: 32px;
+                max-width: 32px;
+                min-height: 32px;
+                max-height: 32px;
+                font-size: 14px;
+            }}
+            #play_btn:hover {{
+                background-color: #00f0ff;
+                color: #000000;
+                border: none;
+            }}
+            #play_btn:pressed {{
+                background-color: #00b5cc;
+            }}
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: #23232e;
+                border-radius: 2px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6c5ce7, stop:1 #00f0ff);
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: #ffffff;
+                width: 10px;
+                height: 10px;
+                margin-top: -3px;
+                margin-bottom: -3px;
+                border-radius: 5px;
+                border: 1px solid #00f0ff;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: #00f0ff;
+                border-color: #ffffff;
+                width: 12px;
+                height: 12px;
+                margin-top: -4px;
+                margin-bottom: -4px;
+                border-radius: 6px;
+            }}
+        """)
 
     def setup_timer(self):
         self.timer = QTimer(self)
@@ -554,23 +560,28 @@ class PlayerWidget(QWidget):
             self.normal_parent = self.parent()
             self.normal_geometry = self.geometry()
             
-            # Overlay Window flags
-            self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.CustomizeWindowHint)
+            # Detach from parent and configure as a frameless top-level window
+            self.setParent(None)
+            self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
             self.showFullScreen()
             self.fullscreen_btn.setText("🗗")
             self.fullscreen_btn.setToolTip("Exit Fullscreen")
             self.fullscreen_mode = True
         else:
             # Exit fullscreen
-            self.setWindowFlags(Qt.WindowType.Widget)
+            self.setWindowState(Qt.WindowState.WindowNoState)
             if self.normal_parent:
+                self.setParent(self.normal_parent)
                 self.normal_parent.layout().addWidget(self)
+            else:
+                self.setWindowFlags(Qt.WindowType.Widget)
             self.showNormal()
             self.setGeometry(self.normal_geometry)
             self.fullscreen_btn.setText("⛶")
             self.fullscreen_btn.setToolTip("Fullscreen")
             self.fullscreen_mode = False
         
+        self.update_styles()
         self.setFocus()
 
     def resizeEvent(self, event):
