@@ -53,11 +53,11 @@ class PlayerWidget(QWidget):
             }
             QPushButton:hover {
                 background-color: #2b2b35;
-                border-color: #6c5ce7;
+                border-color: #00f0ff;
             }
             QPushButton:pressed {
-                background-color: #6c5ce7;
-                color: #ffffff;
+                background-color: #00f0ff;
+                color: #000000;
             }
             QComboBox {
                 background-color: #1a1a1f;
@@ -68,13 +68,13 @@ class PlayerWidget(QWidget):
                 min-width: 130px;
             }
             QComboBox:hover {
-                border-color: #6c5ce7;
+                border-color: #00f0ff;
             }
             QComboBox QAbstractItemView {
                 background-color: #1a1a1f;
                 color: #f1f1f1;
-                selection-background-color: #6c5ce7;
-                selection-color: #ffffff;
+                selection-background-color: #00f0ff;
+                selection-color: #000000;
                 border: 1px solid #2d2d35;
             }
             QSlider::groove:horizontal {
@@ -83,7 +83,7 @@ class PlayerWidget(QWidget):
                 border-radius: 3px;
             }
             QSlider::sub-page:horizontal {
-                background: #6c5ce7;
+                background: #00f0ff;
                 border-radius: 3px;
             }
             QSlider::handle:horizontal {
@@ -93,10 +93,10 @@ class PlayerWidget(QWidget):
                 margin-top: -4px;
                 margin-bottom: -4px;
                 border-radius: 7px;
-                border: 1px solid #6c5ce7;
+                border: 1px solid #00f0ff;
             }
             QSlider::handle:horizontal:hover {
-                background: #6c5ce7;
+                background: #00f0ff;
             }
         """)
 

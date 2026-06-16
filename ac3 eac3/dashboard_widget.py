@@ -136,16 +136,19 @@ class DashboardWidget(QWidget):
                 line-height: 1.4;
             }
             QPushButton.action-btn {
-                background-color: #6c5ce7;
-                color: #ffffff;
+                background-color: #00f0ff;
+                color: #000000;
                 border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
                 font-weight: bold;
             }
             QPushButton.action-btn:hover {
-                background-color: #5b4cc4;
+                background-color: #5bf7ff;
+            }
+            QPushButton.action-btn:pressed {
+                background-color: #00b5cc;
             }
             /* QSplitter handle */
             QSplitter::handle {

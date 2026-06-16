@@ -62,15 +62,16 @@ class LoginWidget(QWidget):
                 border-radius: 8px;
                 padding: 10px 14px;
                 font-size: 14px;
-                selection-background-color: #6c5ce7;
+                selection-background-color: #00f0ff;
+                selection-color: #000000;
             }
             QLineEdit:focus {
-                border-color: #6c5ce7;
+                border-color: #00f0ff;
                 background-color: #22222b;
             }
             QPushButton#loginBtn {
-                background-color: #6c5ce7;
-                color: #ffffff;
+                background-color: #00f0ff;
+                color: #000000;
                 border: none;
                 border-radius: 8px;
                 padding: 12px;
@@ -78,10 +79,10 @@ class LoginWidget(QWidget):
                 font-weight: bold;
             }
             QPushButton#loginBtn:hover {
-                background-color: #5b4cc4;
+                background-color: #5bf7ff;
             }
             QPushButton#loginBtn:pressed {
-                background-color: #4a3cb0;
+                background-color: #00b5cc;
             }
             QPushButton#adminBtn {
                 background: none;
@@ -95,7 +96,7 @@ class LoginWidget(QWidget):
                 margin-top: 5px;
             }
             QPushButton#adminBtn:hover {
-                color: #6c5ce7;
+                color: #00f0ff;
             }
             QLabel#statusLabel {
                 color: #ff7675;
@@ -311,12 +312,12 @@ class AdminPanelDialog(QDialog):
                 font-size: 13px;
             }
             QLineEdit:focus {
-                border-color: #6c5ce7;
+                border-color: #00f0ff;
                 background-color: #22222b;
             }
             QPushButton {
-                background-color: #6c5ce7;
-                color: #ffffff;
+                background-color: #00f0ff;
+                color: #000000;
                 border: none;
                 border-radius: 8px;
                 padding: 12px;
@@ -324,10 +325,10 @@ class AdminPanelDialog(QDialog):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #5b4cc4;
+                background-color: #5bf7ff;
             }
             QPushButton:pressed {
-                background-color: #4a3cb0;
+                background-color: #00b5cc;
             }
             QPushButton:disabled {
                 background-color: #2b2b35;
