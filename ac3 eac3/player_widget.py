@@ -162,7 +162,7 @@ class PlayerWidget(QWidget):
         self.buttons_layout.addStretch()
 
         # Settings Gear Menu
-        self.settings_btn = QPushButton("⚙ Settings", self.controls_panel)
+        self.settings_btn = QPushButton("⚙", self.controls_panel)
         self.settings_btn.setObjectName("settings_btn")
         self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.settings_btn.clicked.connect(self.show_settings_menu)
@@ -266,7 +266,7 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn {{
+            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn {{
                 min-width: 34px;
                 max-width: 34px;
                 min-height: 34px;
@@ -274,11 +274,6 @@ class PlayerWidget(QWidget):
                 border-radius: 6px;
                 font-size: 16px;
                 padding: 0px;
-            }}
-            #settings_btn {{
-                min-height: 22px;
-                max-height: 22px;
-                font-size: 10px;
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
@@ -337,7 +332,7 @@ class PlayerWidget(QWidget):
             self.last_cursor_pos = current_pos
             # Map global position to local coordinates of this player widget
             local_pos = self.mapFromGlobal(current_pos)
-            if self.rect().contains(local_pos) and self.window().isActiveWindow():
+            if self.rect().contains(local_pos):
                 self.show_controls()
 
     def play(self, url=None, title=None):
@@ -538,7 +533,7 @@ class PlayerWidget(QWidget):
         menu.exec(QPoint(menu_x, menu_y))
         
         self.settings_menu_open = False
-        if self.media_player.get_state() == vlc.State.Playing:
+        if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
             self.hide_timer.start()
 
     def select_audio_track(self, track_id):
@@ -565,7 +560,7 @@ class PlayerWidget(QWidget):
                 logging.info(f"VLC Player: Seeking to position {pos_ratio:.2f} ({target_time_ms} ms)")
             self.is_seeking = False
         
-        if self.media_player.get_state() == vlc.State.Playing:
+        if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
             self.hide_timer.start()
 
     def on_slider_moved(self, value):
@@ -619,6 +614,7 @@ class PlayerWidget(QWidget):
             self.fullscreen_mode = False
         
         self.update_styles()
+        self.show_controls()
         self.setFocus()
 
     def resizeEvent(self, event):
@@ -666,12 +662,14 @@ class PlayerWidget(QWidget):
             
         self.setCursor(Qt.CursorShape.ArrowCursor)
         
-        if self.media_player.get_state() == vlc.State.Playing and not self.settings_menu_open and not self.is_seeking:
+        if self.media_player.get_state() == vlc.State.Playing and not self.settings_menu_open and not self.is_seeking and self.fullscreen_mode:
             self.hide_timer.start()
         else:
             self.hide_timer.stop()
 
     def hide_controls(self):
+        if not self.fullscreen_mode:
+            return
         if self.media_player.get_state() == vlc.State.Playing and self.controls_visible:
             # Stop any running fade-in animation
             self.header_animation.stop()
