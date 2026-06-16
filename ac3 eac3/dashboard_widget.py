@@ -734,7 +734,7 @@ class DashboardWidget(QWidget):
         stream_url = self.client.get_live_stream_url(stream_id)
         
         # Play in Player
-        self.player_widget.play(stream_url)
+        self.player_widget.play(stream_url, channel_name)
 
     # --- Movies Event Handlers ---
 
@@ -928,7 +928,7 @@ class DashboardWidget(QWidget):
         logging.info(f"VLC Player: Docked to Theater View for {title}")
         
         # Start Playback
-        self.player_widget.play(url)
+        self.player_widget.play(url, title)
 
     def exit_theater_mode(self):
         # Stop playback on exit

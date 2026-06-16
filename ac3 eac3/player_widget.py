@@ -1,14 +1,14 @@
 import sys
 import os
 import vlc
+import logging
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QSlider, QLabel, QComboBox, QSizePolicy, QStyle
+    QSlider, QLabel, QMenu, QSizePolicy, QStyle
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QPalette, QIcon, QAction
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint
+from PyQt6.QtGui import QColor, QPalette, QIcon, QAction, QCursor
 
-import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class PlayerWidget(QWidget):
@@ -28,87 +28,141 @@ class PlayerWidget(QWidget):
         self.normal_geometry = None
         self.normal_parent = None
         
+        self.prev_volume = 70
+        self.controls_visible = True
+        self.settings_menu_open = False
+        
         self.setup_ui()
         self.setup_timer()
+        self.setup_hover_logic()
 
     def setup_ui(self):
         self.setObjectName("PlayerWidget")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Premium dark styling with smooth transitions and glow effects
         self.setStyleSheet("""
             #PlayerWidget {
-                background-color: #0d0d0f;
-                border-radius: 8px;
+                background-color: #08080a;
+                border: 1px solid #1c1c24;
+                border-radius: 12px;
+            }
+            #header_panel {
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.95), stop:1 rgba(13, 13, 15, 0.7));
+                border-bottom: 1px solid #1c1c24;
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+            }
+            #controls_panel {
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(13, 13, 15, 0.7), stop:1 rgba(13, 13, 15, 0.95));
+                border-top: 1px solid #1c1c24;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
             }
             QLabel {
-                color: #e0e0e0;
+                color: #e0e0e2;
+                font-family: "Segoe UI", sans-serif;
                 font-size: 12px;
+            }
+            #title_label {
+                color: #ffffff;
+                font-size: 13px;
                 font-weight: bold;
             }
             QPushButton {
-                background-color: #1a1a1f;
-                color: #f1f1f1;
-                border: 1px solid #2d2d35;
+                background-color: rgba(30, 30, 38, 0.6);
+                color: #ffffff;
+                border: 1px solid #2d2d3d;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-weight: bold;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 11px;
             }
             QPushButton:hover {
-                background-color: #2b2b35;
+                background-color: rgba(108, 92, 231, 0.2);
                 border-color: #00f0ff;
+                color: #00f0ff;
             }
             QPushButton:pressed {
                 background-color: #00f0ff;
                 color: #000000;
             }
-            QComboBox {
-                background-color: #1a1a1f;
-                color: #f1f1f1;
-                border: 1px solid #2d2d35;
-                border-radius: 6px;
-                padding: 4px 8px;
-                min-width: 130px;
+            #play_btn {
+                background-color: #6c5ce7;
+                color: #ffffff;
+                border: none;
+                border-radius: 16px;
+                min-width: 32px;
+                max-width: 32px;
+                min-height: 32px;
+                max-height: 32px;
+                font-size: 14px;
             }
-            QComboBox:hover {
-                border-color: #00f0ff;
+            #play_btn:hover {
+                background-color: #00f0ff;
+                color: #000000;
+                border: none;
             }
-            QComboBox QAbstractItemView {
-                background-color: #1a1a1f;
-                color: #f1f1f1;
-                selection-background-color: #00f0ff;
-                selection-color: #000000;
-                border: 1px solid #2d2d35;
+            #play_btn:pressed {
+                background-color: #00b5cc;
             }
             QSlider::groove:horizontal {
-                height: 6px;
-                background: #2b2b35;
-                border-radius: 3px;
+                height: 4px;
+                background: #23232e;
+                border-radius: 2px;
             }
             QSlider::sub-page:horizontal {
-                background: #00f0ff;
-                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6c5ce7, stop:1 #00f0ff);
+                border-radius: 2px;
             }
             QSlider::handle:horizontal {
                 background: #ffffff;
-                width: 14px;
-                height: 14px;
-                margin-top: -4px;
-                margin-bottom: -4px;
-                border-radius: 7px;
+                width: 10px;
+                height: 10px;
+                margin-top: -3px;
+                margin-bottom: -3px;
+                border-radius: 5px;
                 border: 1px solid #00f0ff;
             }
             QSlider::handle:horizontal:hover {
                 background: #00f0ff;
+                border-color: #ffffff;
+                width: 12px;
+                height: 12px;
+                margin-top: -4px;
+                margin-bottom: -4px;
+                border-radius: 6px;
             }
         """)
 
         # Main Layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(5, 5, 5, 5)
-        self.main_layout.setSpacing(6)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
-        # Video Frame Container
+        # 1. Header Bar (Overlay styled panel)
+        self.header_panel = QFrame(self)
+        self.header_panel.setObjectName("header_panel")
+        self.header_panel.setFixedHeight(40)
+        header_layout = QHBoxLayout(self.header_panel)
+        header_layout.setContentsMargins(15, 0, 15, 0)
+        header_layout.setSpacing(10)
+
+        self.title_label = QLabel("Not Playing", self.header_panel)
+        self.title_label.setObjectName("title_label")
+        header_layout.addWidget(self.title_label)
+
+        self.badge_label = QLabel("", self.header_panel)
+        self.badge_label.hide()
+        header_layout.addWidget(self.badge_label)
+        
+        header_layout.addStretch()
+        self.main_layout.addWidget(self.header_panel)
+
+        # 2. Video Frame Container
         self.video_frame = QFrame(self)
-        self.video_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        self.video_frame.setFrameShadow(QFrame.Shadow.Raised)
+        self.video_frame.setFrameShape(QFrame.Shape.NoFrame)
         self.video_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # Background color for video frame
         palette = self.video_frame.palette()
@@ -117,129 +171,228 @@ class PlayerWidget(QWidget):
         self.video_frame.setAutoFillBackground(True)
         self.main_layout.addWidget(self.video_frame)
 
-        # Controls Container Layout
-        self.controls_layout = QVBoxLayout()
-        self.controls_layout.setSpacing(4)
+        # 2b. Buffering / Loading HUD Overlay
+        self.loading_overlay = QFrame(self.video_frame)
+        self.loading_overlay.setStyleSheet("background-color: rgba(8, 8, 10, 0.85); border-radius: 0px;")
+        loading_layout = QVBoxLayout(self.loading_overlay)
         
-        # 1. Timeline Row (Slider + Time label)
+        self.loading_label = QLabel("⚡ BUFFERING STREAM...", self.loading_overlay)
+        self.loading_label.setStyleSheet("color: #00f0ff; font-size: 13px; font-weight: bold; background: transparent;")
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        loading_layout.addWidget(self.loading_label)
+        self.loading_overlay.hide()
+
+        # 3. Control Panel Container (QFrame for bottom control bar)
+        self.controls_panel = QFrame(self)
+        self.controls_panel.setObjectName("controls_panel")
+        self.controls_layout = QVBoxLayout(self.controls_panel)
+        self.controls_layout.setContentsMargins(15, 8, 15, 10)
+        self.controls_layout.setSpacing(6)
+        
+        # 3a. Timeline Row
         self.timeline_layout = QHBoxLayout()
+        self.timeline_layout.setSpacing(10)
         
-        self.slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.slider = QSlider(Qt.Orientation.Horizontal, self.controls_panel)
         self.slider.setRange(0, 1000)
         self.slider.setValue(0)
+        self.slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider.sliderPressed.connect(self.on_slider_pressed)
         self.slider.sliderReleased.connect(self.on_slider_released)
         self.slider.sliderMoved.connect(self.on_slider_moved)
         
-        self.time_label = QLabel("00:00:00 / 00:00:00", self)
+        self.time_label = QLabel("00:00:00 / 00:00:00", self.controls_panel)
+        self.time_label.setStyleSheet("font-weight: bold; font-family: Consolas, monospace;")
         
         self.timeline_layout.addWidget(self.slider)
         self.timeline_layout.addWidget(self.time_label)
         self.controls_layout.addLayout(self.timeline_layout)
 
-        # 2. Buttons Row (Play, Pause, Stop, Volume, Audio Tracks, Fullscreen)
+        # 3b. Controls Buttons Row
         self.buttons_layout = QHBoxLayout()
-        self.buttons_layout.setContentsMargins(5, 0, 5, 0)
-        self.buttons_layout.setSpacing(10)
+        self.buttons_layout.setContentsMargins(0, 2, 0, 0)
+        self.buttons_layout.setSpacing(8)
 
-        # Play/Pause Button
-        self.play_btn = QPushButton("▶ Play", self)
+        # Play/Pause Circle Button
+        self.play_btn = QPushButton("▶", self.controls_panel)
+        self.play_btn.setObjectName("play_btn")
+        self.play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.play_btn.clicked.connect(self.toggle_play)
         self.buttons_layout.addWidget(self.play_btn)
 
         # Stop Button
-        self.stop_btn = QPushButton("⏹ Stop", self)
+        self.stop_btn = QPushButton("⏹", self.controls_panel)
+        self.stop_btn.setToolTip("Stop")
+        self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.stop_btn.setFixedWidth(30)
         self.stop_btn.clicked.connect(self.stop)
         self.buttons_layout.addWidget(self.stop_btn)
 
-        # Volume Controls
-        self.volume_label = QLabel("🔊 70%", self)
-        self.volume_slider = QSlider(Qt.Orientation.Horizontal, self)
+        # Mute / Volume Toggle Button
+        self.volume_btn = QPushButton("🔊", self.controls_panel)
+        self.volume_btn.setToolTip("Mute/Unmute")
+        self.volume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.volume_btn.setFixedWidth(30)
+        self.volume_btn.clicked.connect(self.toggle_mute)
+        self.buttons_layout.addWidget(self.volume_btn)
+
+        # Volume Slider
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal, self.controls_panel)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(70)
         self.volume_slider.setFixedWidth(80)
+        self.volume_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.volume_slider.valueChanged.connect(self.set_volume)
         self.media_player.audio_set_volume(70) # Init volume in VLC
         
-        self.buttons_layout.addWidget(self.volume_label)
+        self.volume_label = QLabel("70%", self.controls_panel)
+        self.volume_label.setStyleSheet("color: #8f8f9e; font-weight: bold; min-width: 32px;")
+        
         self.buttons_layout.addWidget(self.volume_slider)
+        self.buttons_layout.addWidget(self.volume_label)
 
         # Spacer
         self.buttons_layout.addStretch()
 
-        # Audio Track Combo (AC3/EAC3 selector)
-        self.audio_track_label = QLabel("Audio Track:", self)
-        self.audio_track_combo = QComboBox(self)
-        self.audio_track_combo.addItem("Default Track", -1)
-        self.audio_track_combo.currentIndexChanged.connect(self.on_audio_track_changed)
-        
-        self.buttons_layout.addWidget(self.audio_track_label)
-        self.buttons_layout.addWidget(self.audio_track_combo)
+        # Settings Gear Menu
+        self.settings_btn = QPushButton("⚙ Settings", self.controls_panel)
+        self.settings_btn.setObjectName("settings_btn")
+        self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.settings_btn.clicked.connect(self.show_settings_menu)
+        self.buttons_layout.addWidget(self.settings_btn)
 
         # Fullscreen Button
-        self.fullscreen_btn = QPushButton("⛶ Fullscreen", self)
+        self.fullscreen_btn = QPushButton("⛶", self.controls_panel)
+        self.fullscreen_btn.setToolTip("Fullscreen")
+        self.fullscreen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fullscreen_btn.setFixedWidth(30)
         self.fullscreen_btn.clicked.connect(self.toggle_fullscreen)
         self.buttons_layout.addWidget(self.fullscreen_btn)
 
         self.controls_layout.addLayout(self.buttons_layout)
-        self.main_layout.addLayout(self.controls_layout)
+        self.main_layout.addWidget(self.controls_panel)
+
+        # Event filter for click & gestures on video frame
+        self.video_frame.installEventFilter(self)
 
         # Link VLC to video_frame window handle on Windows
         if sys.platform == "win32":
             self.media_player.set_hwnd(int(self.video_frame.winId()))
         else:
-            # Fallback for X11 / Wayland / macOS if executed on non-Windows
             if sys.platform.startswith("linux"):
                 self.media_player.set_xwindow(int(self.video_frame.winId()))
-            elif sys.platform == "darwin":
-                # libvlc NSView requires additional bindings, but user is on Windows.
-                pass
 
     def setup_timer(self):
         self.timer = QTimer(self)
-        self.timer.setInterval(250) # Polling rate of 250ms
+        self.timer.setInterval(250)
         self.timer.timeout.connect(self.update_player_status)
 
-    def play(self, url=None):
+    def setup_hover_logic(self):
+        self.setMouseTracking(True)
+        self.video_frame.setMouseTracking(True)
+        self.controls_panel.setMouseTracking(True)
+        self.header_panel.setMouseTracking(True)
+        
+        self.hide_timer = QTimer(self)
+        self.hide_timer.setInterval(3000) # Hide controls after 3 seconds of idle mouse
+        self.hide_timer.timeout.connect(self.hide_controls)
+
+        # Polling timer for mouse moves when VLC window intercepts hover events
+        self.last_cursor_pos = QCursor.pos()
+        self.poll_timer = QTimer(self)
+        self.poll_timer.setInterval(200) # Poll every 200ms
+        self.poll_timer.timeout.connect(self.poll_mouse_activity)
+        self.poll_timer.start()
+
+    def poll_mouse_activity(self):
+        current_pos = QCursor.pos()
+        if current_pos != self.last_cursor_pos:
+            self.last_cursor_pos = current_pos
+            # Map global position to local coordinates of this player widget
+            local_pos = self.mapFromGlobal(current_pos)
+            if self.rect().contains(local_pos) and self.window().isActiveWindow():
+                self.show_controls()
+
+    def play(self, url=None, title=None):
         if url:
             self.stream_url = url
             logging.info(f"VLC Player: Playing URL {url}")
             media = self.vlc_instance.media_new(url)
             self.media_player.set_media(media)
             self.tracks_loaded = False
-            self.audio_track_combo.clear()
-            self.audio_track_combo.addItem("Loading Tracks...", -1)
+            
+            # Setup title and badges
+            if title:
+                self.title_label.setText(title)
+                if "live" in url.lower() or url.endswith(".ts") or "/live" in url:
+                    self.badge_label.setText("● LIVE")
+                    self.badge_label.setStyleSheet("color: #ff4757; border: 1px solid #ff4757; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; background: rgba(255, 71, 87, 0.1);")
+                    self.badge_label.show()
+                else:
+                    self.badge_label.setText("🎬 VOD")
+                    self.badge_label.setStyleSheet("color: #00f0ff; border: 1px solid #00f0ff; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; background: rgba(0, 240, 255, 0.1);")
+                    self.badge_label.show()
+            else:
+                self.title_label.setText("Playing Media")
+                self.badge_label.hide()
+            
+            self.show_controls()
+            self.loading_overlay.show()
             
         self.media_player.play()
         self.timer.start()
-        self.play_btn.setText("⏸ Pause")
+        self.play_btn.setText("⏸")
         self.playback_state_changed.emit("playing")
+        
+        # Focus on player widget so keyboard shortcuts work immediately
+        self.setFocus()
 
     def toggle_play(self):
         state = self.media_player.get_state()
         if state == vlc.State.Playing:
             self.media_player.pause()
-            self.play_btn.setText("▶ Play")
+            self.play_btn.setText("▶")
             self.playback_state_changed.emit("paused")
+            self.show_controls()
         else:
             self.play()
 
     def stop(self):
         self.media_player.stop()
         self.timer.stop()
+        self.hide_timer.stop()
         self.slider.setValue(0)
         self.time_label.setText("00:00:00 / 00:00:00")
-        self.play_btn.setText("▶ Play")
+        self.play_btn.setText("▶")
         self.playback_state_changed.emit("stopped")
         self.tracks_loaded = False
-        self.audio_track_combo.clear()
-        self.audio_track_combo.addItem("Default Track", -1)
+        self.loading_overlay.hide()
+        self.show_controls()
 
     def set_volume(self, value):
         self.media_player.audio_set_volume(value)
-        self.volume_label.setText(f"🔊 {value}%")
+        self.volume_label.setText(f"{value}%")
+        if value == 0:
+            self.volume_btn.setText("🔇")
+        elif value <= 33:
+            self.volume_btn.setText("🔈")
+        elif value <= 66:
+            self.volume_btn.setText("🔉")
+        else:
+            self.volume_btn.setText("🔊")
 
-    # Time converters
+    def toggle_mute(self):
+        if self.media_player.audio_get_mute():
+            self.media_player.audio_set_mute(False)
+            self.volume_slider.setValue(self.prev_volume)
+            self.set_volume(self.prev_volume)
+        else:
+            self.prev_volume = self.volume_slider.value()
+            self.media_player.audio_set_mute(True)
+            self.volume_slider.setValue(0)
+            self.volume_btn.setText("🔇")
+            self.volume_label.setText("0%")
+
     def format_time(self, ms):
         seconds = int((ms / 1000) % 60)
         minutes = int((ms / (1000 * 60)) % 60)
@@ -264,52 +417,115 @@ class PlayerWidget(QWidget):
 
         # Detect audio tracks once they are loaded
         state = self.media_player.get_state()
-        if state == vlc.State.Playing and not self.tracks_loaded:
-            # Query track description lists
-            tracks = self.media_player.audio_get_track_description()
-            if tracks and len(tracks) > 1: # Index 0 is usually (-1, b'Disable')
-                self.populate_audio_tracks(tracks)
-                self.tracks_loaded = True
+        if state == vlc.State.Playing:
+            self.loading_overlay.hide()
+            if not self.tracks_loaded:
+                tracks = self.media_player.audio_get_track_description()
+                if tracks and len(tracks) > 1:
+                    logging.info(f"VLC Player: Audio tracks parsed dynamically: {tracks}")
+                    self.tracks_loaded = True
+        elif state in (vlc.State.Opening, vlc.State.Buffering):
+            self.loading_overlay.show()
+            self.loading_overlay.setGeometry(0, 0, self.video_frame.width(), self.video_frame.height())
 
         # Check if playback ended
         if state == vlc.State.Ended:
             self.stop()
 
-    def populate_audio_tracks(self, tracks):
-        # Disconnect signal to avoid trigger during load
-        self.audio_track_combo.currentIndexChanged.disconnect(self.on_audio_track_changed)
-        self.audio_track_combo.clear()
-        
-        active_id = self.media_player.audio_get_track()
-        
-        logging.info(f"VLC Player: Detected audio tracks: {tracks}")
-        
-        for track_id, track_name_bytes in tracks:
-            # Track names are returned as byte strings
-            track_name = track_name_bytes.decode('utf-8', errors='ignore')
-            
-            # Highlight codecs if possible (VLC sometimes gives generic names like 'Audio Track 1')
-            # Our generated media file will have names like "AC3 Audio (440Hz)" and "EAC3 Audio (880Hz)"
-            self.audio_track_combo.addItem(track_name, track_id)
-            
-            # Select current active track
-            if track_id == active_id:
-                idx = self.audio_track_combo.count() - 1
-                self.audio_track_combo.setCurrentIndex(idx)
-                
-        self.audio_track_combo.currentIndexChanged.connect(self.on_audio_track_changed)
+    def show_settings_menu(self):
+        self.settings_menu_open = True
+        self.hide_timer.stop()
 
-    def on_audio_track_changed(self, index):
-        if index < 0:
-            return
-        track_id = self.audio_track_combo.currentData()
-        if track_id is not None:
-            logging.info(f"VLC Player: Switching to audio track ID={track_id}")
-            self.media_player.audio_set_track(track_id)
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #121215;
+                color: #ffffff;
+                border: 1px solid #2a2a35;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 24px;
+                border-radius: 4px;
+                color: #e0e0e0;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 11px;
+            }
+            QMenu::item:selected {
+                background-color: #6c5ce7;
+                color: #ffffff;
+            }
+            QMenu::item:checked {
+                font-weight: bold;
+                color: #00f0ff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #2a2a35;
+                margin: 4px 8px;
+            }
+        """)
+
+        # Submenu 1: Audio Tracks
+        audio_menu = menu.addMenu("🎵 Audio Tracks")
+        audio_menu.setStyleSheet(menu.styleSheet())
+        
+        tracks = self.media_player.audio_get_track_description()
+        active_track = self.media_player.audio_get_track()
+        
+        if not tracks or len(tracks) <= 1:
+            no_tracks = audio_menu.addAction("Default Track")
+            no_tracks.setCheckable(True)
+            no_tracks.setChecked(True)
+            no_tracks.setEnabled(False)
+        else:
+            for track_id, track_name_bytes in tracks:
+                track_name = track_name_bytes.decode('utf-8', errors='ignore')
+                action = audio_menu.addAction(track_name)
+                action.setCheckable(True)
+                action.setChecked(track_id == active_track)
+                # Capture variable using parameter default binding
+                action.triggered.connect(lambda checked, t_id=track_id: self.select_audio_track(t_id))
+
+        # Submenu 2: Playback Speed
+        speed_menu = menu.addMenu("⚡ Playback Speed")
+        speed_menu.setStyleSheet(menu.styleSheet())
+        
+        current_speed = self.media_player.get_rate()
+        speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+        
+        for s in speeds:
+            lbl = f"{s}x" if s != 1.0 else "1.0x (Normal)"
+            action = speed_menu.addAction(lbl)
+            action.setCheckable(True)
+            action.setChecked(abs(current_speed - s) < 0.05)
+            action.triggered.connect(lambda checked, val=s: self.set_playback_speed(val))
+
+        # Display the menu positioned above settings button
+        button_pos = self.settings_btn.mapToGlobal(QPoint(0, 0))
+        # Estimate menu height (around 140px)
+        menu_x = button_pos.x()
+        menu_y = button_pos.y() - 140
+        
+        menu.exec(QPoint(menu_x, menu_y))
+        
+        self.settings_menu_open = False
+        if self.media_player.get_state() == vlc.State.Playing:
+            self.hide_timer.start()
+
+    def select_audio_track(self, track_id):
+        logging.info(f"VLC Player: Select audio track ID={track_id}")
+        self.media_player.audio_set_track(track_id)
+
+    def set_playback_speed(self, rate):
+        logging.info(f"VLC Player: Adjusting playback speed to {rate}x")
+        self.media_player.set_rate(rate)
 
     # Slider interactions
     def on_slider_pressed(self):
         self.is_seeking = True
+        self.hide_timer.stop()
 
     def on_slider_released(self):
         if self.is_seeking:
@@ -321,9 +537,11 @@ class PlayerWidget(QWidget):
                 self.media_player.set_time(target_time_ms)
                 logging.info(f"VLC Player: Seeking to position {pos_ratio:.2f} ({target_time_ms} ms)")
             self.is_seeking = False
+        
+        if self.media_player.get_state() == vlc.State.Playing:
+            self.hide_timer.start()
 
     def on_slider_moved(self, value):
-        # Live time update while dragging
         length = self.media_player.get_length()
         if length > 0:
             current = int((value / 1000.0) * length)
@@ -336,28 +554,115 @@ class PlayerWidget(QWidget):
             self.normal_parent = self.parent()
             self.normal_geometry = self.geometry()
             
-            # Set to window flags for overlay window
+            # Overlay Window flags
             self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.CustomizeWindowHint)
             self.showFullScreen()
-            self.fullscreen_btn.setText("Exit Fullscreen")
+            self.fullscreen_btn.setText("🗗")
+            self.fullscreen_btn.setToolTip("Exit Fullscreen")
             self.fullscreen_mode = True
         else:
             # Exit fullscreen
             self.setWindowFlags(Qt.WindowType.Widget)
             if self.normal_parent:
-                # Add back to layout
                 self.normal_parent.layout().addWidget(self)
             self.showNormal()
             self.setGeometry(self.normal_geometry)
-            self.fullscreen_btn.setText("⛶ Fullscreen")
+            self.fullscreen_btn.setText("⛶")
+            self.fullscreen_btn.setToolTip("Fullscreen")
             self.fullscreen_mode = False
+        
+        self.setFocus()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'loading_overlay') and self.loading_overlay:
+            self.loading_overlay.setGeometry(0, 0, self.video_frame.width(), self.video_frame.height())
+
+    def eventFilter(self, obj, event):
+        if obj == self.video_frame:
+            if event.type() == QEvent.Type.MouseButtonDblClick:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self.toggle_fullscreen()
+                    return True
+            elif event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self.toggle_play()
+                    return True
+            elif event.type() == QEvent.Type.MouseMove:
+                self.show_controls()
+        return super().eventFilter(obj, event)
+
+    def mouseMoveEvent(self, event):
+        self.show_controls()
+        super().mouseMoveEvent(event)
+
+    def show_controls(self):
+        self.header_panel.show()
+        self.controls_panel.show()
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.controls_visible = True
+        
+        if self.media_player.get_state() == vlc.State.Playing and not self.settings_menu_open and not self.is_seeking:
+            self.hide_timer.start()
+        else:
+            self.hide_timer.stop()
+
+    def hide_controls(self):
+        if self.media_player.get_state() == vlc.State.Playing and self.controls_visible:
+            self.header_panel.hide()
+            self.controls_panel.hide()
+            self.setCursor(Qt.CursorShape.BlankCursor)
+            self.controls_visible = False
+            self.hide_timer.stop()
 
     def keyPressEvent(self, event):
-        # Escape key exits fullscreen
-        if event.key() == Qt.Key.Key_Escape and self.fullscreen_mode:
+        key = event.key()
+        if key == Qt.Key.Key_Space:
+            self.toggle_play()
+            event.accept()
+        elif key == Qt.Key.Key_Left:
+            # Jump 10 seconds back
+            self.seek_relative(-10000)
+            event.accept()
+        elif key == Qt.Key.Key_Right:
+            # Jump 10 seconds forward
+            self.seek_relative(10000)
+            event.accept()
+        elif key == Qt.Key.Key_Up:
+            # Volume Up
+            self.adjust_volume(5)
+            event.accept()
+        elif key == Qt.Key.Key_Down:
+            # Volume Down
+            self.adjust_volume(-5)
+            event.accept()
+        elif key == Qt.Key.Key_M:
+            self.toggle_mute()
+            event.accept()
+        elif key == Qt.Key.Key_F:
             self.toggle_fullscreen()
+            event.accept()
+        elif key == Qt.Key.Key_Escape and self.fullscreen_mode:
+            self.toggle_fullscreen()
+            event.accept()
         else:
             super().keyPressEvent(event)
+
+    def seek_relative(self, ms_offset):
+        length = self.media_player.get_length()
+        if length > 0:
+            current = self.media_player.get_time()
+            target = max(0, min(length, current + ms_offset))
+            self.media_player.set_time(target)
+            logging.info(f"VLC Player: Seeking relative to {target} ms")
+            self.show_controls()
+
+    def adjust_volume(self, delta):
+        current = self.volume_slider.value()
+        target = max(0, min(100, current + delta))
+        self.volume_slider.setValue(target)
+        self.set_volume(target)
+        self.show_controls()
 
     def closeEvent(self, event):
         self.stop()
