@@ -560,14 +560,23 @@ class PlayerWidget(QWidget):
                         
         for text, color in badges:
             lbl = QLabel(text)
+            if color == "#ff4757":
+                border_style = "1px solid rgba(255, 71, 87, 0.3)"
+                bg_style = "background: rgba(255, 71, 87, 0.1);"
+                text_color = color
+            else:
+                border_style = "1px solid rgba(255, 255, 255, 0.08)"
+                bg_style = "background: rgba(255, 255, 255, 0.05);"
+                text_color = "#d1d5db" # Grayish white
+                
             lbl.setStyleSheet(f"""
-                color: {color}; 
-                border: 1px solid rgba({255 if color == '#ff4757' else 0}, {71 if color == '#ff4757' else 240}, {87 if color == '#ff4757' else 255}, 0.3); 
+                color: {text_color}; 
+                border: {border_style}; 
                 border-radius: 3px; 
                 padding: 1px 4px; 
                 font-weight: bold; 
                 font-size: 9px; 
-                background: rgba({255 if color == '#ff4757' else 0}, {71 if color == '#ff4757' else 240}, {87 if color == '#ff4757' else 255}, 0.1);
+                {bg_style}
             """)
             self.meta_badges_layout.addWidget(lbl)
 

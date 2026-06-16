@@ -97,6 +97,16 @@ class DashboardWidget(QWidget):
                 padding: 5px;
                 outline: 0;
             }
+            #live_cat_widget, #movie_cat_widget, #series_cat_widget {
+                background-color: #10141e;
+                border: 1px solid #1e2538;
+                border-radius: 6px;
+            }
+            #live_cat_widget QListWidget, #movie_cat_widget QListWidget, #series_cat_widget QListWidget {
+                background-color: transparent;
+                border: none;
+                padding: 0px 5px 5px 5px;
+            }
             QListWidget::item {
                 border-radius: 4px;
                 padding: 8px 10px;
@@ -345,7 +355,7 @@ class DashboardWidget(QWidget):
                 neon_dot.setStyleSheet("color: #10b981; font-size: 10px;")
                 
                 portal_label = QLabel("XTREAM PORTAL", portal_row)
-                portal_label.setStyleSheet("color: #6b7280; font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+                portal_label.setStyleSheet("color: #6b7280; font-size: 9px; font-weight: 900; letter-spacing: 1px;")
                 
                 portal_layout.addWidget(neon_dot)
                 portal_layout.addWidget(portal_label)
@@ -358,17 +368,17 @@ class DashboardWidget(QWidget):
                 host_str = host_str.replace("http://", "").replace("https://", "").strip("/")
                 
                 server_url_label = QLabel(host_str, expiry_widget)
-                server_url_label.setStyleSheet("color: #e5e7eb; font-size: 10px; font-family: monospace;")
+                server_url_label.setStyleSheet("color: #6b7280; font-size: 11px; font-family: monospace;")
                 expiry_layout.addWidget(server_url_label)
                 
                 # Expiry Details
                 exp_label = QLabel(exp_text, expiry_widget)
-                exp_label.setStyleSheet("color: #9ca3af; font-size: 9px;")
+                exp_label.setStyleSheet("color: #6b7280; font-size: 10px;")
                 expiry_layout.addWidget(exp_label)
                 
                 if exp_remain:
                     remain_label = QLabel(exp_remain, expiry_widget)
-                    remain_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: bold;")
+                    remain_label.setStyleSheet("color: #6b7280; font-size: 11px; font-weight: bold;")
                     expiry_layout.addWidget(remain_label)
                 
                 sidebar_layout.addWidget(expiry_widget)
@@ -408,12 +418,13 @@ class DashboardWidget(QWidget):
         
         # Left: Categories
         self.live_cat_widget = QWidget(self)
+        self.live_cat_widget.setObjectName("live_cat_widget")
         self.live_cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(self.live_cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         
-        cat_title = QLabel("Categories", self)
-        cat_title.setStyleSheet("color: #9ca3af; font-weight: bold; margin-bottom: 5px;")
+        cat_title = QLabel("CATEGORIES", self)
+        cat_title.setStyleSheet("color: #6b7280; font-size: 10px; font-weight: bold; padding: 10px 12px 4px 12px; letter-spacing: 1px; border: none; background: transparent;")
         self.live_cat_list = QListWidget(self)
         self.live_cat_list.currentRowChanged.connect(self.on_live_category_changed)
         
@@ -426,11 +437,6 @@ class DashboardWidget(QWidget):
         channel_layout = QVBoxLayout(self.live_channel_widget)
         channel_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.live_search = QLineEdit(self)
-        self.live_search.setPlaceholderText("🔍 Search channels...")
-        self.live_search.setProperty("class", "search-bar")
-        self.live_search.textChanged.connect(self.filter_live_channels)
-        
         self.live_channel_list = QListWidget(self)
         self.live_channel_list.setIconSize(QSize(28, 28))
         self.live_channel_list.itemClicked.connect(self.on_live_channel_clicked)
@@ -438,7 +444,6 @@ class DashboardWidget(QWidget):
             lambda val: self.load_visible_icons(self.live_channel_list)
         )
         
-        channel_layout.addWidget(self.live_search)
         channel_layout.addWidget(self.live_channel_list)
 
         # Right: Mini Player and Channel Info Details
@@ -561,13 +566,31 @@ class DashboardWidget(QWidget):
         self.live_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.live_detail_layout.addWidget(self.live_spacer, stretch=1)
 
-        # Add to splitter in new order: Player (left/middle), Categories (right-left), Channels (right-right)
+        # Search bar and lists wrapper
+        self.live_lists_wrapper = QWidget(self)
+        wrapper_layout = QVBoxLayout(self.live_lists_wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(10)
+
+        self.live_search = QLineEdit(self)
+        self.live_search.setPlaceholderText("🔍 Search channels...")
+        self.live_search.setProperty("class", "search-bar")
+        self.live_search.textChanged.connect(self.filter_live_channels)
+        wrapper_layout.addWidget(self.live_search)
+
+        self.live_lists_splitter = QSplitter(Qt.Orientation.Horizontal, self.live_lists_wrapper)
+        self.live_lists_splitter.addWidget(self.live_cat_widget)
+        self.live_lists_splitter.addWidget(self.live_channel_widget)
+        self.live_lists_splitter.setSizes([215, 215])
+
+        wrapper_layout.addWidget(self.live_lists_splitter)
+
+        # Add to splitter in new order: Player (left/middle), Lists wrapper (right)
         splitter.addWidget(self.live_detail_pane)
-        splitter.addWidget(self.live_cat_widget)
-        splitter.addWidget(self.live_channel_widget)
+        splitter.addWidget(self.live_lists_wrapper)
         
-        # Set default splitter sizes (Player: 55%, Categories: 22.5%, Streams: 22.5%)
-        splitter.setSizes([470, 215, 215])
+        # Set default splitter sizes
+        splitter.setSizes([470, 430])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -694,13 +717,16 @@ class DashboardWidget(QWidget):
 
         # Center: Categories
         self.movie_cat_widget = QWidget(self)
+        self.movie_cat_widget.setObjectName("movie_cat_widget")
         self.movie_cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(self.movie_cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         self.movie_cat_list = QListWidget(self)
         self.movie_cat_list.currentRowChanged.connect(self.on_movie_category_changed)
         
-        cat_layout.addWidget(QLabel("Categories", self))
+        movie_cat_title = QLabel("CATEGORIES", self)
+        movie_cat_title.setStyleSheet("color: #6b7280; font-size: 10px; font-weight: bold; padding: 10px 12px 4px 12px; letter-spacing: 1px; border: none; background: transparent;")
+        cat_layout.addWidget(movie_cat_title)
         cat_layout.addWidget(self.movie_cat_list)
 
         # Right: Movies List
@@ -709,11 +735,6 @@ class DashboardWidget(QWidget):
         movies_layout = QVBoxLayout(self.movie_list_widget)
         movies_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.movie_search = QLineEdit(self)
-        self.movie_search.setPlaceholderText("🔍 Search movies...")
-        self.movie_search.setProperty("class", "search-bar")
-        self.movie_search.textChanged.connect(self.filter_movies)
-        
         self.movie_list = QListWidget(self)
         self.movie_list.setIconSize(QSize(28, 28))
         self.movie_list.itemClicked.connect(self.on_movie_clicked)
@@ -721,13 +742,30 @@ class DashboardWidget(QWidget):
             lambda val: self.load_visible_icons(self.movie_list)
         )
         
-        movies_layout.addWidget(self.movie_search)
         movies_layout.addWidget(self.movie_list)
 
+        # Search bar and lists wrapper
+        self.movie_lists_wrapper = QWidget(self)
+        wrapper_layout = QVBoxLayout(self.movie_lists_wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(10)
+
+        self.movie_search = QLineEdit(self)
+        self.movie_search.setPlaceholderText("🔍 Search movies...")
+        self.movie_search.setProperty("class", "search-bar")
+        self.movie_search.textChanged.connect(self.filter_movies)
+        wrapper_layout.addWidget(self.movie_search)
+
+        self.movie_lists_splitter = QSplitter(Qt.Orientation.Horizontal, self.movie_lists_wrapper)
+        self.movie_lists_splitter.addWidget(self.movie_cat_widget)
+        self.movie_lists_splitter.addWidget(self.movie_list_widget)
+        self.movie_lists_splitter.setSizes([215, 215])
+
+        wrapper_layout.addWidget(self.movie_lists_splitter)
+
         splitter.addWidget(self.movie_detail_pane)
-        splitter.addWidget(self.movie_cat_widget)
-        splitter.addWidget(self.movie_list_widget)
-        splitter.setSizes([470, 215, 215])
+        splitter.addWidget(self.movie_lists_wrapper)
+        splitter.setSizes([470, 430])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -862,13 +900,16 @@ class DashboardWidget(QWidget):
 
         # Center: Categories
         self.series_cat_widget = QWidget(self)
+        self.series_cat_widget.setObjectName("series_cat_widget")
         self.series_cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(self.series_cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         self.series_cat_list = QListWidget(self)
         self.series_cat_list.currentRowChanged.connect(self.on_series_category_changed)
         
-        cat_layout.addWidget(QLabel("Categories", self))
+        series_cat_title = QLabel("CATEGORIES", self)
+        series_cat_title.setStyleSheet("color: #6b7280; font-size: 10px; font-weight: bold; padding: 10px 12px 4px 12px; letter-spacing: 1px; border: none; background: transparent;")
+        cat_layout.addWidget(series_cat_title)
         cat_layout.addWidget(self.series_cat_list)
 
         # Right: Series List
@@ -877,11 +918,6 @@ class DashboardWidget(QWidget):
         series_layout = QVBoxLayout(self.series_list_widget)
         series_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.series_search = QLineEdit(self)
-        self.series_search.setPlaceholderText("🔍 Search series...")
-        self.series_search.setProperty("class", "search-bar")
-        self.series_search.textChanged.connect(self.filter_series)
-        
         self.series_list = QListWidget(self)
         self.series_list.setIconSize(QSize(28, 28))
         self.series_list.itemClicked.connect(self.on_series_clicked)
@@ -889,13 +925,30 @@ class DashboardWidget(QWidget):
             lambda val: self.load_visible_icons(self.series_list)
         )
         
-        series_layout.addWidget(self.series_search)
         series_layout.addWidget(self.series_list)
 
+        # Search bar and lists wrapper
+        self.series_lists_wrapper = QWidget(self)
+        wrapper_layout = QVBoxLayout(self.series_lists_wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(10)
+
+        self.series_search = QLineEdit(self)
+        self.series_search.setPlaceholderText("🔍 Search series...")
+        self.series_search.setProperty("class", "search-bar")
+        self.series_search.textChanged.connect(self.filter_series)
+        wrapper_layout.addWidget(self.series_search)
+
+        self.series_lists_splitter = QSplitter(Qt.Orientation.Horizontal, self.series_lists_wrapper)
+        self.series_lists_splitter.addWidget(self.series_cat_widget)
+        self.series_lists_splitter.addWidget(self.series_list_widget)
+        self.series_lists_splitter.setSizes([215, 215])
+
+        wrapper_layout.addWidget(self.series_lists_splitter)
+
         splitter.addWidget(self.series_detail_pane)
-        splitter.addWidget(self.series_cat_widget)
-        splitter.addWidget(self.series_list_widget)
-        splitter.setSizes([470, 215, 215])
+        splitter.addWidget(self.series_lists_wrapper)
+        splitter.setSizes([470, 430])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
