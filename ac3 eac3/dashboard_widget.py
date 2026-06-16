@@ -428,7 +428,7 @@ class DashboardWidget(QWidget):
         layout.setSpacing(10)
 
         # Splitter to allow resizing of Category / Channel lists
-        splitter = QSplitter(Qt.Orientation.Horizontal, panel)
+        self.live_splitter = QSplitter(Qt.Orientation.Horizontal, panel)
         
         # Left: Categories
         self.live_cat_widget = QWidget(self)
@@ -489,14 +489,14 @@ class DashboardWidget(QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: rgba(0, 240, 255, 0.2);
-                border-color: #00f0ff;
+                background-color: rgba(156, 163, 175, 0.15);
+                border-color: #9ca3af;
                 color: #ffffff;
             }
             QPushButton:checked {
-                color: #00f0ff;
-                border-color: #00f0ff;
-                background-color: rgba(0, 240, 255, 0.1);
+                color: #d1d5db;
+                border-color: #9ca3af;
+                background-color: rgba(156, 163, 175, 0.08);
             }
         """)
         self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
@@ -600,13 +600,13 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.live_lists_splitter)
 
         # Add to splitter in new order: Player (left/middle), Lists wrapper (right)
-        splitter.addWidget(self.live_detail_pane)
-        splitter.addWidget(self.live_lists_wrapper)
+        self.live_splitter.addWidget(self.live_detail_pane)
+        self.live_splitter.addWidget(self.live_lists_wrapper)
         
         # Set default splitter sizes
-        splitter.setSizes([470, 430])
+        self.live_splitter.setSizes([470, 430])
 
-        layout.addWidget(splitter)
+        layout.addWidget(self.live_splitter)
         self.content_stack.addWidget(panel)
 
     def setup_movies_panel(self):
@@ -615,7 +615,7 @@ class DashboardWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal, panel)
+        self.movie_splitter = QSplitter(Qt.Orientation.Horizontal, panel)
 
         # 1. Left/Middle: Movie Details View (with player)
         self.movie_detail_pane = QFrame(self)
@@ -777,11 +777,11 @@ class DashboardWidget(QWidget):
 
         wrapper_layout.addWidget(self.movie_lists_splitter)
 
-        splitter.addWidget(self.movie_detail_pane)
-        splitter.addWidget(self.movie_lists_wrapper)
-        splitter.setSizes([470, 430])
+        self.movie_splitter.addWidget(self.movie_detail_pane)
+        self.movie_splitter.addWidget(self.movie_lists_wrapper)
+        self.movie_splitter.setSizes([470, 430])
 
-        layout.addWidget(splitter)
+        layout.addWidget(self.movie_splitter)
         self.content_stack.addWidget(panel)
 
     def setup_series_panel(self):
@@ -790,7 +790,7 @@ class DashboardWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal, panel)
+        self.series_splitter = QSplitter(Qt.Orientation.Horizontal, panel)
 
         # Left/Middle: Series Details Pane (with player)
         self.series_detail_pane = QFrame(self)
@@ -960,11 +960,11 @@ class DashboardWidget(QWidget):
 
         wrapper_layout.addWidget(self.series_lists_splitter)
 
-        splitter.addWidget(self.series_detail_pane)
-        splitter.addWidget(self.series_lists_wrapper)
-        splitter.setSizes([470, 430])
+        self.series_splitter.addWidget(self.series_detail_pane)
+        self.series_splitter.addWidget(self.series_lists_wrapper)
+        self.series_splitter.setSizes([470, 430])
 
-        layout.addWidget(splitter)
+        layout.addWidget(self.series_splitter)
         self.content_stack.addWidget(panel)
 
     def setup_settings_panel(self):
@@ -1598,29 +1598,74 @@ class DashboardWidget(QWidget):
         self.movie_sidebar_toggle_btn.setText(text)
         self.series_sidebar_toggle_btn.setText(text)
 
+    def update_live_search_visibility(self):
+        self.live_search.setVisible(self.channel_toggle_btn.isChecked())
+
+    def update_movie_search_visibility(self):
+        self.movie_search.setVisible(self.movie_list_toggle_btn.isChecked())
+
+    def update_series_search_visibility(self):
+        self.series_search.setVisible(self.series_list_toggle_btn.isChecked())
+
+    def adjust_live_splitter_sizes(self):
+        cat_visible = self.cat_toggle_btn.isChecked()
+        chan_visible = self.channel_toggle_btn.isChecked()
+        self.live_lists_wrapper.setVisible(cat_visible or chan_visible)
+        if cat_visible and chan_visible:
+            self.live_splitter.setSizes([470, 430])
+        elif cat_visible or chan_visible:
+            self.live_splitter.setSizes([685, 215])
+
+    def adjust_movie_splitter_sizes(self):
+        cat_visible = self.movie_cat_toggle_btn.isChecked()
+        list_visible = self.movie_list_toggle_btn.isChecked()
+        self.movie_lists_wrapper.setVisible(cat_visible or list_visible)
+        if cat_visible and list_visible:
+            self.movie_splitter.setSizes([470, 430])
+        elif cat_visible or list_visible:
+            self.movie_splitter.setSizes([685, 215])
+
+    def adjust_series_splitter_sizes(self):
+        cat_visible = self.series_cat_toggle_btn.isChecked()
+        list_visible = self.series_list_toggle_btn.isChecked()
+        self.series_lists_wrapper.setVisible(cat_visible or list_visible)
+        if cat_visible and list_visible:
+            self.series_splitter.setSizes([470, 430])
+        elif cat_visible or list_visible:
+            self.series_splitter.setSizes([685, 215])
+
     def toggle_categories(self):
         visible = self.cat_toggle_btn.isChecked()
         self.live_cat_widget.setVisible(visible)
+        self.adjust_live_splitter_sizes()
 
     def toggle_channels(self):
         visible = self.channel_toggle_btn.isChecked()
         self.live_channel_widget.setVisible(visible)
+        self.update_live_search_visibility()
+        self.adjust_live_splitter_sizes()
 
     def toggle_movie_categories(self):
         visible = self.movie_cat_toggle_btn.isChecked()
         self.movie_cat_widget.setVisible(visible)
+        self.adjust_movie_splitter_sizes()
 
     def toggle_movie_list(self):
         visible = self.movie_list_toggle_btn.isChecked()
         self.movie_list_widget.setVisible(visible)
+        self.update_movie_search_visibility()
+        self.adjust_movie_splitter_sizes()
 
     def toggle_series_categories(self):
         visible = self.series_cat_toggle_btn.isChecked()
         self.series_cat_widget.setVisible(visible)
+        self.adjust_series_splitter_sizes()
 
     def toggle_series_list(self):
         visible = self.series_list_toggle_btn.isChecked()
         self.series_list_widget.setVisible(visible)
+        self.update_series_search_visibility()
+        self.adjust_series_splitter_sizes()
 
     def on_player_full_program_changed(self, is_full):
         # Determine panel visibility (if player is full window size, panels are hidden)
@@ -1654,6 +1699,8 @@ class DashboardWidget(QWidget):
             self.live_meta_container.setVisible(visible)
             self.live_spacer.setVisible(visible)
             self.live_detail_layout.setContentsMargins(margin, margin, margin, margin)
+            self.update_live_search_visibility()
+            self.adjust_live_splitter_sizes()
             
         elif active_tab == 1:
             # Movies
@@ -1669,6 +1716,8 @@ class DashboardWidget(QWidget):
             self.movie_play_btn.setVisible(visible and self.movie_list.currentItem() is not None)
             self.movie_spacer.setVisible(visible)
             self.movie_detail_layout.setContentsMargins(margin, margin, margin, margin)
+            self.update_movie_search_visibility()
+            self.adjust_movie_splitter_sizes()
             
         elif active_tab == 2:
             # Series
@@ -1687,6 +1736,8 @@ class DashboardWidget(QWidget):
             self.episodes_list.setVisible(visible)
             self.series_spacer.setVisible(visible)
             self.series_detail_layout.setContentsMargins(margin, margin, margin, margin)
+            self.update_series_search_visibility()
+            self.adjust_series_splitter_sizes()
 
     def load_logo_image(self, url, label_widget, default_emoji="📺"):
         # Reset and display centered default emoji placeholder
