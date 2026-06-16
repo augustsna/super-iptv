@@ -161,12 +161,6 @@ export default function Settings({
           </div>
           <div className="section-body" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <div>
-              <button className="btn btn-secondary" onClick={onClearFavorites} style={{ border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
-                Clear Favorites List
-              </button>
-              <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark)', marginTop: '6px' }}>Removes all starred channels from browser cache</span>
-            </div>
-            <div>
               <button className="btn btn-secondary" onClick={onClearPlaylist} style={{ border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
                 Disconnect Active Playlist
               </button>

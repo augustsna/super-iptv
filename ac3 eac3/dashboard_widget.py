@@ -800,29 +800,46 @@ class DashboardWidget(QWidget):
         card_layout.addWidget(title)
 
         # Account Details Table/Labels
+        host_url = self.client.host.replace("http://", "").replace("https://", "")
         details = [
+            ("Host / Source:", host_url),
             ("Username:", self.client.username),
             ("Status:", self.client.user_info.get("status", "Unknown")),
-            ("Connections:", f"{self.client.user_info.get('active_cons', '0')} / {self.client.user_info.get('max_connections', 'Unlimited')}"),
+            ("Connections (Active / Max):", f"{self.client.user_info.get('active_cons', '0')} / {self.client.user_info.get('max_connections', 'Unlimited')}"),
         ]
         
         # Format date expiration
-        exp_timestamp = self.client.user_info.get("expiry_date")
-        if exp_timestamp:
+        exp_timestamp = self.client.user_info.get("exp_date")
+        if exp_timestamp and str(exp_timestamp) != '0':
             try:
                 date = datetime.datetime.fromtimestamp(int(exp_timestamp))
-                details.append(("Expiration Date:", date.strftime("%Y-%m-%d %H:%M:%S")))
+                now = datetime.datetime.now()
+                diff = date - now
+                if diff.total_seconds() <= 0:
+                    details.append(("Subscription Expiry:", f"Expired ({date.strftime('%m/%d/%Y')})"))
+                else:
+                    days = diff.days
+                    hours, remainder = divmod(diff.seconds, 3600)
+                    mins, _ = divmod(remainder, 60)
+                    if days > 0:
+                        remaining = f"{days}d {hours}h {mins}m remaining"
+                    elif hours > 0:
+                        remaining = f"{hours}h {mins}m remaining"
+                    else:
+                        remaining = f"{mins}m remaining"
+                    
+                    details.append(("Subscription Expiry:", f"{date.strftime('%m/%d/%Y')} ({remaining})"))
             except Exception:
-                details.append(("Expiration Date:", "Never"))
+                details.append(("Subscription Expiry:", "Never"))
         else:
-            details.append(("Expiration Date:", "Never"))
+            details.append(("Subscription Expiry:", "Unlimited"))
 
         # Add Details to card
         for key, val in details:
             row = QHBoxLayout()
             kl = QLabel(key, card)
             kl.setObjectName("settingsKey")
-            kl.setFixedWidth(150)
+            kl.setFixedWidth(200)
             vl = QLabel(val, card)
             vl.setObjectName("settingsVal")
             row.addWidget(kl)
@@ -830,6 +847,51 @@ class DashboardWidget(QWidget):
             row.addStretch()
             card_layout.addLayout(row)
 
+        card_layout.addSpacing(25)
+        
+        # Stream Loading & Batching
+        batch_title = QLabel("STREAM LOADING & BATCHING", card)
+        batch_title.setObjectName("settingsTitle")
+        card_layout.addWidget(batch_title)
+        
+        batch_layout = QHBoxLayout()
+        batch_label = QLabel("Load Limit / Batch Size:", card)
+        batch_label.setObjectName("settingsKey")
+        batch_label.setFixedWidth(200)
+        
+        self.batch_combo = QComboBox(card)
+        self.batch_combo.addItems(["50 items", "100 items", "200 items", "500 items", "1000 items", "Show All"])
+        self.batch_combo.setStyleSheet("color: white; background-color: #202026; padding: 5px; border-radius: 4px; min-width: 120px;")
+        
+        batch_layout.addWidget(batch_label)
+        batch_layout.addWidget(self.batch_combo)
+        batch_layout.addStretch()
+        card_layout.addLayout(batch_layout)
+        
+        batch_desc = QLabel("Controls the number of channels/VOD items loaded per page.", card)
+        batch_desc.setStyleSheet("color: #8f8f9e; font-size: 11px;")
+        card_layout.addWidget(batch_desc)
+        
+        card_layout.addSpacing(25)
+
+        # Cache & Data Management
+        data_title = QLabel("CACHE & DATA MANAGEMENT", card)
+        data_title.setStyleSheet("color: #ef4444; font-size: 20px; font-weight: bold;")
+        card_layout.addWidget(data_title)
+        
+        data_layout = QHBoxLayout()
+        data_layout.setSpacing(15)
+        
+        self.disconnect_btn = QPushButton("Disconnect Active Playlist", card)
+        self.disconnect_btn.setStyleSheet("color: #f87171; border: 1px solid rgba(239,68,68,0.2); padding: 8px 15px; border-radius: 4px; background: transparent;")
+        self.disconnect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.disconnect_btn.clicked.connect(self.logout)
+        
+        data_layout.addWidget(self.disconnect_btn)
+        data_layout.addStretch()
+        
+        card_layout.addLayout(data_layout)
+        
         card_layout.addSpacing(25)
         
         # Audio Codec support info

@@ -68,18 +68,6 @@ export default function Sidebar({
           </>
         )}
 
-        <button 
-          className={`menu-item ${activeTab === 'favorites' ? 'active' : ''}`}
-          onClick={() => setActiveTab('favorites')}
-        >
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Heart size={18} fill={activeTab === 'favorites' ? 'currentColor' : 'none'} />
-            {favoritesCount > 0 && (
-              <span className="favorite-count-badge text-digital">{favoritesCount}</span>
-            )}
-          </div>
-          <span>Favorites</span>
-        </button>
 
       </nav>
 
