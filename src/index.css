@@ -110,7 +110,7 @@ body {
 .dashboard-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 500px;
   grid-template-rows: 1fr auto;
   gap: 16px;
   padding: 16px;

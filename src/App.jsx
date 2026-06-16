@@ -197,8 +197,8 @@ export default function App() {
       const streamsJson = await streamsResponse.json();
 
       // Formulate categories
-      const hasWorldCup = Array.isArray(catsJson) && catsJson.some(c => c.category_name === 'World Cup 2026');
-      setCategories(hasWorldCup ? ['All Channels', 'World Cup 2026', 'Sports'] : ['All Channels', 'Sports']);
+      const serverCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setCategories(['All Channels', ...new Set(serverCats)]);
 
       // Parse and format streams
       const catMap = {};
@@ -267,7 +267,8 @@ export default function App() {
         })
         : [];
 
-      setMovieCategories(['All Movies']);
+      const serverMovieCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setMovieCategories(['All Movies', ...new Set(serverMovieCats)]);
       setMovies(formattedMovies);
       setSelectedMovieCategory('All Movies');
     } catch (err) {
@@ -310,7 +311,8 @@ export default function App() {
         })
         : [];
 
-      setSeriesCategories(['All Series']);
+      const serverSeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setSeriesCategories(['All Series', ...new Set(serverSeriesCats)]);
       setSeries(formattedSeries);
       setSelectedSeriesCategory('All Series');
     } catch (err) {
@@ -1026,16 +1028,14 @@ export default function App() {
 
         /* Vertical category sidebar */
         .cat-sidebar {
-          width: 140px;
-          min-width: 110px;
-          flex-shrink: 0;
+          flex: 40;
           display: flex;
           flex-direction: column;
           overflow-y: auto;
           border-right: 1px solid var(--border-color);
           background: rgba(0,0,0,0.15);
           padding: 8px 0;
-          gap: 2px;
+          gap: 8px;
         }
         .cat-sidebar::-webkit-scrollbar { width: 3px; }
         .cat-sidebar-title {
@@ -1054,14 +1054,14 @@ export default function App() {
           border: none;
           border-left: 2px solid transparent;
           color: var(--text-muted);
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 500;
-          padding: 7px 12px;
+          padding: 12px 16px;
           cursor: pointer;
           transition: all 0.15s ease;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          word-wrap: break-word;
+          line-height: 1.4;
           font-family: var(--font-sans);
         }
         .cat-sidebar-item:hover {
@@ -1078,7 +1078,7 @@ export default function App() {
 
         /* Content column to the right of sidebar */
         .content-col {
-          flex: 1;
+          flex: 60;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -1453,47 +1453,22 @@ export default function App() {
             min-height: 0;
             border-radius: var(--radius-sm);
           }
-          .panel-body {
-            flex: 1;
-            flex-direction: column;
-            overflow: hidden;
-            min-height: 0;
-          }
-          /* On mobile: category sidebar becomes a horizontal strip */
+          /* 40/60 split on mobile as well */
           .cat-sidebar {
-            width: 100% !important;
-            min-width: unset !important;
-            flex-direction: row !important;
-            overflow-x: auto;
-            overflow-y: hidden;
-            border-right: none !important;
-            border-bottom: 1px solid var(--border-color);
-            padding: 10px 12px !important;
-            gap: 8px !important;
-            flex-shrink: 0;
-            max-height: 56px;
+            flex: 40 !important;
+            width: auto !important;
+            min-width: 0 !important;
           }
-          .cat-sidebar-title { display: none; }
           .cat-sidebar-item {
-            white-space: nowrap;
-            border-left: none !important;
-            border-bottom: none !important;
-            border: 1px solid var(--border-color) !important;
-            background: rgba(255, 255, 255, 0.03) !important;
-            padding: 6px 14px !important;
-            font-size: 12px !important;
-            border-radius: 20px;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
+            font-size: 14px;
+            padding: 10px 12px;
           }
-          .cat-sidebar-item.active {
-            border-color: var(--primary) !important;
-            background: var(--primary-glow) !important;
-            color: var(--primary) !important;
-            box-shadow: 0 0 6px var(--primary-glow) !important;
+          .cat-sidebar-title {
+            font-size: 11px;
+            padding: 4px 8px 8px;
           }
           .content-col {
-            flex: 1;
+            flex: 60 !important;
             min-height: 0;
           }
           .list-items-container {
