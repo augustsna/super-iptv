@@ -198,7 +198,7 @@ export default function App() {
 
       // Formulate categories
       const serverCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setCategories(['All Channels', ...new Set(serverCats)]);
+      setCategories([...new Set(['All Channels', 'Sports', ...serverCats])]);
 
       // Parse and format streams
       const catMap = {};
