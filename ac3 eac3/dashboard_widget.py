@@ -39,7 +39,7 @@ class DashboardWidget(QWidget):
         self.setup_ui()
         
         # Trigger initial loading of Live TV categories
-        self.switch_tab(0)
+        self.show_live_tv()
 
     def setup_ui(self):
         self.setObjectName("DashboardWidget")
@@ -244,7 +244,6 @@ class DashboardWidget(QWidget):
         
         cat_layout.addWidget(cat_title)
         cat_layout.addWidget(self.live_cat_list)
-        splitter.addWidget(cat_widget)
 
         # Center: Channel list & search bar
         channel_widget = QWidget(self)
@@ -261,7 +260,6 @@ class DashboardWidget(QWidget):
         
         channel_layout.addWidget(self.live_search)
         channel_layout.addWidget(self.live_channel_list)
-        splitter.addWidget(channel_widget)
 
         # Right: Mini Player and Channel Info Details
         self.live_detail_pane = QFrame(self)
@@ -294,10 +292,13 @@ class DashboardWidget(QWidget):
         self.live_detail_layout.addWidget(self.live_info_desc)
         self.live_detail_layout.addStretch()
 
+        # Add to splitter in new order: Player (left/middle), Categories (right-left), Channels (right-right)
         splitter.addWidget(self.live_detail_pane)
+        splitter.addWidget(cat_widget)
+        splitter.addWidget(channel_widget)
         
-        # Set default splitter sizes (Categories: 15%, Streams: 30%, Player: 55%)
-        splitter.setSizes([180, 250, 470])
+        # Set default splitter sizes (Player: 55%, Categories: 15%, Streams: 30%)
+        splitter.setSizes([470, 180, 250])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
