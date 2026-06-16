@@ -360,20 +360,11 @@ class PlayerWidget(QWidget):
             self.media_player.set_media(media)
             self.tracks_loaded = False
             
-            # Setup title and badges
             if title:
                 self.title_label.setText(title)
-                if "live" in url.lower() or url.endswith(".ts") or "/live" in url:
-                    self.badge_label.setText("● LIVE")
-                    self.badge_label.setStyleSheet("color: #ff4757; border: 1px solid #ff4757; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; background: rgba(255, 71, 87, 0.1);")
-                    self.badge_label.show()
-                else:
-                    self.badge_label.setText("🎬 VOD")
-                    self.badge_label.setStyleSheet("color: #00f0ff; border: 1px solid #00f0ff; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold; background: rgba(0, 240, 255, 0.1);")
-                    self.badge_label.show()
             else:
                 self.title_label.setText("Playing Media")
-                self.badge_label.hide()
+            self.badge_label.hide()
             
             self.show_controls()
             self.loading_overlay.show()

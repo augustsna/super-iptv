@@ -4,8 +4,9 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QLabel, QLineEdit, QStackedWidget, QSplitter,
     QFrame, QComboBox, QScrollArea, QSizePolicy, QStyle, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QColor, QFont, QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QTimer
+from PyQt6.QtGui import QColor, QFont, QPixmap, QIcon
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 from player_widget import PlayerWidget
 from workers import (
@@ -23,6 +24,11 @@ class DashboardWidget(QWidget):
         self.client = client
         self.player_widget = PlayerWidget(self)
         self.player_widget.full_program_state_changed.connect(self.on_player_full_program_changed)
+        self.network_manager = QNetworkAccessManager(self)
+        self.logo_cache = {}
+        self.downloading_urls = set()
+        self.streams_data = {"live": [], "vod": [], "series": []}
+        self.streams_loaded_count = {"live": 0, "vod": 0, "series": 0}
         
         # Cache for loaded categories and streams to avoid unnecessary network queries
         self.categories_cache = {"live": [], "vod": [], "series": []}
@@ -301,7 +307,11 @@ class DashboardWidget(QWidget):
         self.live_search.textChanged.connect(self.filter_live_channels)
         
         self.live_channel_list = QListWidget(self)
+        self.live_channel_list.setIconSize(QSize(28, 28))
         self.live_channel_list.itemClicked.connect(self.on_live_channel_clicked)
+        self.live_channel_list.verticalScrollBar().valueChanged.connect(
+            lambda val: self.load_visible_icons(self.live_channel_list)
+        )
         
         channel_layout.addWidget(self.live_search)
         channel_layout.addWidget(self.live_channel_list)
@@ -381,15 +391,42 @@ class DashboardWidget(QWidget):
         self.mini_player_layout.addWidget(self.live_channel_info_label)
         
         # Details below player
+        self.live_meta_container = QWidget(self)
+        live_meta_layout = QHBoxLayout(self.live_meta_container)
+        live_meta_layout.setContentsMargins(0, 5, 0, 5)
+        live_meta_layout.setSpacing(15)
+
+        # Channel Logo Label
+        self.live_logo_label = QLabel(self)
+        self.live_logo_label.setFixedSize(80, 80)
+        self.live_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.live_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.live_logo_label.setText("📺")
+        live_meta_layout.addWidget(self.live_logo_label)
+
+        # Text details layout
+        live_text_layout = QVBoxLayout()
+        live_text_layout.setSpacing(4)
+        live_text_layout.setContentsMargins(0, 0, 0, 0)
+
         self.live_info_title = QLabel("", self)
         self.live_info_title.setProperty("class", "pane-title")
+        self.live_info_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+        
         self.live_info_desc = QLabel("", self)
         self.live_info_desc.setWordWrap(True)
         self.live_info_desc.setProperty("class", "plot-label")
-        
+        self.live_info_desc.setStyleSheet("color: #8f8f9e; font-size: 12px;")
+
+        live_text_layout.addWidget(self.live_info_title)
+        live_text_layout.addWidget(self.live_info_desc)
+        live_text_layout.addStretch()
+
+        live_meta_layout.addLayout(live_text_layout)
+        live_meta_layout.addStretch()
+
         self.live_detail_layout.addWidget(self.mini_player_container, stretch=9)
-        self.live_detail_layout.addWidget(self.live_info_title)
-        self.live_detail_layout.addWidget(self.live_info_desc)
+        self.live_detail_layout.addWidget(self.live_meta_container)
         self.live_spacer = QWidget(self)
         self.live_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.live_detail_layout.addWidget(self.live_spacer, stretch=1)
@@ -467,16 +504,45 @@ class DashboardWidget(QWidget):
         self.movie_info_label.setProperty("class", "plot-label")
         self.movie_player_layout.addWidget(self.movie_info_label)
 
+        # Movie details layout (horizontal)
+        self.movie_meta_container = QWidget(self)
+        movie_meta_layout = QHBoxLayout(self.movie_meta_container)
+        movie_meta_layout.setContentsMargins(0, 5, 0, 5)
+        movie_meta_layout.setSpacing(15)
+
+        # Movie Poster Label
+        self.movie_logo_label = QLabel(self)
+        self.movie_logo_label.setFixedSize(80, 120)
+        self.movie_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.movie_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.movie_logo_label.setText("🎬")
+        movie_meta_layout.addWidget(self.movie_logo_label)
+
+        # Text details layout
+        movie_text_layout = QVBoxLayout()
+        movie_text_layout.setSpacing(4)
+        movie_text_layout.setContentsMargins(0, 0, 0, 0)
+
         self.movie_title_label = QLabel("Select a Movie", self)
         self.movie_title_label.setProperty("class", "pane-title")
+        self.movie_title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         
         self.movie_rating_label = QLabel("", self)
-        self.movie_rating_label.setStyleSheet("color: #00d2d3; font-weight: bold;")
+        self.movie_rating_label.setStyleSheet("color: #00d2d3; font-weight: bold; font-size: 12px;")
         
         self.movie_desc_label = QLabel("", self)
         self.movie_desc_label.setWordWrap(True)
         self.movie_desc_label.setProperty("class", "plot-label")
-        
+        self.movie_desc_label.setStyleSheet("color: #c5c5d2; font-size: 12px;")
+
+        movie_text_layout.addWidget(self.movie_title_label)
+        movie_text_layout.addWidget(self.movie_rating_label)
+        movie_text_layout.addWidget(self.movie_desc_label)
+        movie_text_layout.addStretch()
+
+        movie_meta_layout.addLayout(movie_text_layout)
+        movie_meta_layout.addStretch()
+
         self.movie_play_btn = QPushButton("🎬 PLAY MOVIE", self)
         self.movie_play_btn.setProperty("class", "action-btn")
         self.movie_play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -484,9 +550,7 @@ class DashboardWidget(QWidget):
         self.movie_play_btn.hide()
         
         self.movie_detail_layout.addWidget(self.movie_player_container, stretch=9)
-        self.movie_detail_layout.addWidget(self.movie_title_label)
-        self.movie_detail_layout.addWidget(self.movie_rating_label)
-        self.movie_detail_layout.addWidget(self.movie_desc_label)
+        self.movie_detail_layout.addWidget(self.movie_meta_container)
         self.movie_detail_layout.addSpacing(15)
         self.movie_detail_layout.addWidget(self.movie_play_btn)
         self.movie_spacer = QWidget(self)
@@ -516,7 +580,11 @@ class DashboardWidget(QWidget):
         self.movie_search.textChanged.connect(self.filter_movies)
         
         self.movie_list = QListWidget(self)
+        self.movie_list.setIconSize(QSize(28, 28))
         self.movie_list.itemClicked.connect(self.on_movie_clicked)
+        self.movie_list.verticalScrollBar().valueChanged.connect(
+            lambda val: self.load_visible_icons(self.movie_list)
+        )
         
         movies_layout.addWidget(self.movie_search)
         movies_layout.addWidget(self.movie_list)
@@ -591,12 +659,40 @@ class DashboardWidget(QWidget):
         self.series_info_label.setProperty("class", "plot-label")
         self.series_player_layout.addWidget(self.series_info_label)
 
+        # Series details layout (horizontal)
+        self.series_meta_container = QWidget(self)
+        series_meta_layout = QHBoxLayout(self.series_meta_container)
+        series_meta_layout.setContentsMargins(0, 5, 0, 5)
+        series_meta_layout.setSpacing(15)
+
+        # Series Poster Label
+        self.series_logo_label = QLabel(self)
+        self.series_logo_label.setFixedSize(80, 120)
+        self.series_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.series_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        self.series_logo_label.setText("🍿")
+        series_meta_layout.addWidget(self.series_logo_label)
+
+        # Text details layout
+        series_text_layout = QVBoxLayout()
+        series_text_layout.setSpacing(4)
+        series_text_layout.setContentsMargins(0, 0, 0, 0)
+
         self.series_title_label = QLabel("Select a Series", self)
         self.series_title_label.setProperty("class", "pane-title")
+        self.series_title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         
         self.series_desc_label = QLabel("", self)
         self.series_desc_label.setWordWrap(True)
         self.series_desc_label.setProperty("class", "plot-label")
+        self.series_desc_label.setStyleSheet("color: #c5c5d2; font-size: 12px;")
+
+        series_text_layout.addWidget(self.series_title_label)
+        series_text_layout.addWidget(self.series_desc_label)
+        series_text_layout.addStretch()
+
+        series_meta_layout.addLayout(series_text_layout)
+        series_meta_layout.addStretch()
         
         # Season Selector Combobox
         self.season_combo_label = QLabel("Select Season:", self)
@@ -613,8 +709,7 @@ class DashboardWidget(QWidget):
         self.episodes_list.hide()
 
         self.series_detail_layout.addWidget(self.series_player_container, stretch=9)
-        self.series_detail_layout.addWidget(self.series_title_label)
-        self.series_detail_layout.addWidget(self.series_desc_label)
+        self.series_detail_layout.addWidget(self.series_meta_container)
         self.series_detail_layout.addSpacing(10)
         self.series_detail_layout.addWidget(self.season_combo_label)
         self.series_detail_layout.addWidget(self.season_combo)
@@ -648,7 +743,11 @@ class DashboardWidget(QWidget):
         self.series_search.textChanged.connect(self.filter_series)
         
         self.series_list = QListWidget(self)
+        self.series_list.setIconSize(QSize(28, 28))
         self.series_list.itemClicked.connect(self.on_series_clicked)
+        self.series_list.verticalScrollBar().valueChanged.connect(
+            lambda val: self.load_visible_icons(self.series_list)
+        )
         
         series_layout.addWidget(self.series_search)
         series_layout.addWidget(self.series_list)
@@ -853,24 +952,14 @@ class DashboardWidget(QWidget):
         def on_finished(streams):
             list_widget.setEnabled(True)
             list_widget.clear()
-            self.current_streams = streams
+            self.streams_data[mode] = streams
+            self.streams_loaded_count[mode] = 0
             
             if not streams:
                 list_widget.addItem("No streams available.")
                 return
 
-            for stream in streams:
-                name = stream.get("name", "Unknown Stream")
-                stream_id = stream.get("stream_id") or stream.get("series_id")
-                
-                # Check for rating if available (mostly VODs)
-                rating = stream.get("rating")
-                if rating:
-                    name += f"  (⭐ {rating})"
-                    
-                item = QListWidgetItem(name)
-                item.setData(Qt.ItemDataRole.UserRole, stream)
-                list_widget.addItem(item)
+            self.show_more_streams(mode, list_widget)
 
         self.stream_worker.finished.connect(on_finished)
         self.stream_worker.start()
@@ -885,12 +974,12 @@ class DashboardWidget(QWidget):
         self.load_streams("live", category_id, self.live_channel_list)
 
     def filter_live_channels(self, query):
-        query = query.lower().strip()
-        for i in range(self.live_channel_list.count()):
-            item = self.live_channel_list.item(i)
-            item.setHidden(query not in item.text().lower())
+        self.filter_list_items("live", query, self.live_channel_list)
 
     def on_live_channel_clicked(self, item):
+        if item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
+            self.show_more_streams("live", self.live_channel_list)
+            return
         stream_data = item.data(Qt.ItemDataRole.UserRole)
         if not stream_data:
             return
@@ -901,9 +990,10 @@ class DashboardWidget(QWidget):
         # Dock player back to the live container if not already there
         self.dock_player_to_live()
         
-        # Set text details
+        # Set text details and load logo
         self.live_info_title.setText(channel_name)
         self.live_info_desc.setText(f"Streaming live now. Stream ID: {stream_id}")
+        self.load_logo_image(stream_data.get("stream_icon", ""), self.live_logo_label, "📺")
         
         # Construct Live TS stream URL
         stream_url = self.client.get_live_stream_url(stream_id)
@@ -921,12 +1011,12 @@ class DashboardWidget(QWidget):
         self.load_streams("vod", category_id, self.movie_list)
 
     def filter_movies(self, query):
-        query = query.lower().strip()
-        for i in range(self.movie_list.count()):
-            item = self.movie_list.item(i)
-            item.setHidden(query not in item.text().lower())
+        self.filter_list_items("vod", query, self.movie_list)
 
     def on_movie_clicked(self, item):
+        if item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
+            self.show_more_streams("vod", self.movie_list)
+            return
         movie_data = item.data(Qt.ItemDataRole.UserRole)
         if not movie_data:
             return
@@ -941,6 +1031,7 @@ class DashboardWidget(QWidget):
             f"Plot: This is a placeholder description for the movie '{movie_data.get('name')}' streamed via Xtream Codes."
         )
         self.movie_desc_label.setText(desc)
+        self.load_logo_image(movie_data.get("stream_icon", ""), self.movie_logo_label, "🎬")
         self.movie_play_btn.show()
 
     def play_selected_movie(self):
@@ -972,12 +1063,12 @@ class DashboardWidget(QWidget):
         self.load_streams("series", category_id, self.series_list)
 
     def filter_series(self, query):
-        query = query.lower().strip()
-        for i in range(self.series_list.count()):
-            item = self.series_list.item(i)
-            item.setHidden(query not in item.text().lower())
+        self.filter_list_items("series", query, self.series_list)
 
     def on_series_clicked(self, item):
+        if item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
+            self.show_more_streams("series", self.series_list)
+            return
         series_data = item.data(Qt.ItemDataRole.UserRole)
         if not series_data:
             return
@@ -985,6 +1076,7 @@ class DashboardWidget(QWidget):
         series_id = series_data["series_id"]
         self.series_title_label.setText(series_data.get("name", "Unknown Series"))
         self.series_desc_label.setText(series_data.get("plot", "No description available."))
+        self.load_logo_image(series_data.get("cover", ""), self.series_logo_label, "🍿")
         
         # Load seasons and episodes in background
         self.load_series_episodes(series_id)
@@ -1190,8 +1282,7 @@ class DashboardWidget(QWidget):
             self.sidebar_toggle_btn.setVisible(visible)
             self.cat_toggle_btn.setVisible(visible)
             self.channel_toggle_btn.setVisible(visible)
-            self.live_info_title.setVisible(visible)
-            self.live_info_desc.setVisible(visible)
+            self.live_meta_container.setVisible(visible)
             self.live_spacer.setVisible(visible)
             self.live_detail_layout.setContentsMargins(margin, margin, margin, margin)
             
@@ -1205,9 +1296,7 @@ class DashboardWidget(QWidget):
             self.movie_sidebar_toggle_btn.setVisible(visible)
             self.movie_cat_toggle_btn.setVisible(visible)
             self.movie_list_toggle_btn.setVisible(visible)
-            self.movie_title_label.setVisible(visible)
-            self.movie_rating_label.setVisible(visible)
-            self.movie_desc_label.setVisible(visible)
+            self.movie_meta_container.setVisible(visible)
             self.movie_play_btn.setVisible(visible and self.movie_list.currentItem() is not None)
             self.movie_spacer.setVisible(visible)
             self.movie_detail_layout.setContentsMargins(margin, margin, margin, margin)
@@ -1222,14 +1311,183 @@ class DashboardWidget(QWidget):
             self.series_sidebar_toggle_btn.setVisible(visible)
             self.series_cat_toggle_btn.setVisible(visible)
             self.series_list_toggle_btn.setVisible(visible)
-            self.series_title_label.setVisible(visible)
-            self.series_desc_label.setVisible(visible)
+            self.series_meta_container.setVisible(visible)
             self.season_combo_label.setVisible(visible)
             self.season_combo.setVisible(visible)
             self.episodes_list_label.setVisible(visible)
             self.episodes_list.setVisible(visible)
             self.series_spacer.setVisible(visible)
             self.series_detail_layout.setContentsMargins(margin, margin, margin, margin)
+
+    def load_logo_image(self, url, label_widget, default_emoji="📺"):
+        # Reset and display centered default emoji placeholder
+        label_widget.setText(default_emoji)
+        label_widget.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
+        label_widget.setPixmap(QPixmap())
+        
+        if not url:
+            return
+            
+        qurl = QUrl(url)
+        request = QNetworkRequest(qurl)
+        request.setRawHeader(b"User-Agent", b"Mozilla/5.0")
+        
+        reply = self.network_manager.get(request)
+        reply.finished.connect(lambda r=reply, l=label_widget: self.on_logo_download_finished(r, l))
+
+    def on_logo_download_finished(self, reply, label_widget):
+        reply.deleteLater()
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data = reply.readAll()
+            pixmap = QPixmap()
+            if pixmap.loadFromData(data):
+                scaled = pixmap.scaled(
+                    label_widget.width(), 
+                    label_widget.height(), 
+                    Qt.AspectRatioMode.KeepAspectRatio, 
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                label_widget.setPixmap(scaled)
+                label_widget.setText("") # Clear emoji
+                label_widget.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215;")
+            else:
+                logging.warning("Logo download succeeded but image format is invalid.")
+        else:
+            logging.warning(f"Failed to download logo: {reply.errorString()}")
+
+    def load_visible_icons(self, list_widget):
+        viewport_rect = list_widget.viewport().rect()
+        for i in range(list_widget.count()):
+            item = list_widget.item(i)
+            if item.isHidden():
+                continue
+                
+            # Check if visual rect of item is currently inside the list viewport
+            item_rect = list_widget.visualItemRect(item)
+            if viewport_rect.intersects(item_rect):
+                logo_url = item.data(Qt.ItemDataRole.UserRole + 1)
+                # If it has a logo URL and no icon has been set yet, trigger download
+                if logo_url and item.icon().isNull():
+                    self.load_list_icon(logo_url, item)
+
+    def load_list_icon(self, url, item):
+        if not url:
+            return
+            
+        # Check cache
+        if url in self.logo_cache:
+            item.setIcon(self.logo_cache[url])
+            return
+            
+        # Avoid duplicate requests for the same image URL in flight
+        if url in self.downloading_urls:
+            return
+            
+        self.downloading_urls.add(url)
+            
+        qurl = QUrl(url)
+        request = QNetworkRequest(qurl)
+        request.setRawHeader(b"User-Agent", b"Mozilla/5.0")
+        
+        reply = self.network_manager.get(request)
+        reply.finished.connect(lambda r=reply, it=item, u=url: self.on_list_icon_download_finished(r, it, u))
+
+    def on_list_icon_download_finished(self, reply, item, url):
+        reply.deleteLater()
+        if url in self.downloading_urls:
+            self.downloading_urls.remove(url)
+            
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data = reply.readAll()
+            pixmap = QPixmap()
+            if pixmap.loadFromData(data):
+                scaled = pixmap.scaled(
+                    28, 
+                    28, 
+                    Qt.AspectRatioMode.KeepAspectRatio, 
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                icon = QIcon(scaled)
+                self.logo_cache[url] = icon
+                
+                # Apply icon to all items in any list sharing this exact URL
+                for lw in [self.live_channel_list, self.movie_list, self.series_list]:
+                    for idx in range(lw.count()):
+                        it = lw.item(idx)
+                        if it.data(Qt.ItemDataRole.UserRole + 1) == url:
+                            try:
+                                it.setIcon(icon)
+                            except RuntimeError:
+                                pass
+            else:
+                logging.warning("Logo download succeeded but image format is invalid.")
+
+    def show_more_streams(self, mode, list_widget):
+        if list_widget.count() > 0:
+            last_item = list_widget.item(list_widget.count() - 1)
+            if last_item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
+                list_widget.takeItem(list_widget.count() - 1)
+
+        all_streams = self.streams_data.get(mode, [])
+        current_count = self.streams_loaded_count.get(mode, 0)
+        
+        PAGE_SIZE = 50
+        next_count = min(len(all_streams), current_count + PAGE_SIZE)
+        
+        for i in range(current_count, next_count):
+            stream = all_streams[i]
+            name = stream.get("name", "Unknown Stream")
+            
+            rating = stream.get("rating")
+            if rating:
+                name += f"  (⭐ {rating})"
+                
+            item = QListWidgetItem(name)
+            item.setData(Qt.ItemDataRole.UserRole, stream)
+            
+            logo_url = stream.get("stream_icon") or stream.get("cover") or ""
+            item.setData(Qt.ItemDataRole.UserRole + 1, logo_url)
+                
+            list_widget.addItem(item)
+            
+        self.streams_loaded_count[mode] = next_count
+        
+        if next_count < len(all_streams):
+            more_item = QListWidgetItem("➕ Load More Items...")
+            more_item.setData(Qt.ItemDataRole.UserRole + 2, "load_more")
+            more_item.setForeground(QColor("#00f0ff"))
+            more_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            list_widget.addItem(more_item)
+            
+        QTimer.singleShot(50, lambda: self.load_visible_icons(list_widget))
+
+    def filter_list_items(self, mode, query, list_widget):
+        query = query.lower().strip()
+        if not query:
+            list_widget.clear()
+            self.streams_loaded_count[mode] = 0
+            self.show_more_streams(mode, list_widget)
+            return
+            
+        list_widget.clear()
+        all_streams = self.streams_data.get(mode, [])
+        matches = [s for s in all_streams if query in s.get("name", "").lower()]
+        
+        for stream in matches[:100]:
+            name = stream.get("name", "Unknown Stream")
+            rating = stream.get("rating")
+            if rating:
+                name += f"  (⭐ {rating})"
+                
+            item = QListWidgetItem(name)
+            item.setData(Qt.ItemDataRole.UserRole, stream)
+            
+            logo_url = stream.get("stream_icon") or stream.get("cover") or ""
+            item.setData(Qt.ItemDataRole.UserRole + 1, logo_url)
+            
+            list_widget.addItem(item)
+            
+        QTimer.singleShot(50, lambda: self.load_visible_icons(list_widget))
 
     def closeEvent(self, event):
         self.abort_active_workers()
