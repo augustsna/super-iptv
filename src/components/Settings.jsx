@@ -90,6 +90,19 @@ export default function Settings({
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--text-dark)' }}>No expiry information available</div>
                 )}
+
+                {/* Connections */}
+                {playlistInfo?.userInfo?.max_connections !== undefined && (
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Wifi size={10} />
+                      <span>Connections (Active / Max)</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>
+                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{playlistInfo.userInfo.active_cons || 0}</span> / {playlistInfo.userInfo.max_connections || 'Unlimited'}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>
