@@ -128,17 +128,17 @@ class PlayerWidget(QWidget):
 
         # Stop Button
         self.stop_btn = QPushButton("⏹", self.controls_panel)
+        self.stop_btn.setObjectName("stop_btn")
         self.stop_btn.setToolTip("Stop")
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stop_btn.setFixedWidth(30)
         self.stop_btn.clicked.connect(self.stop)
         self.buttons_layout.addWidget(self.stop_btn)
 
         # Mute / Volume Toggle Button
         self.volume_btn = QPushButton("🔊", self.controls_panel)
+        self.volume_btn.setObjectName("volume_btn")
         self.volume_btn.setToolTip("Mute/Unmute")
         self.volume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.volume_btn.setFixedWidth(30)
         self.volume_btn.clicked.connect(self.toggle_mute)
         self.buttons_layout.addWidget(self.volume_btn)
 
@@ -169,9 +169,9 @@ class PlayerWidget(QWidget):
 
         # Fullscreen Button
         self.fullscreen_btn = QPushButton("⛶", self.controls_panel)
+        self.fullscreen_btn.setObjectName("fullscreen_btn")
         self.fullscreen_btn.setToolTip("Fullscreen")
         self.fullscreen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.fullscreen_btn.setFixedWidth(30)
         self.fullscreen_btn.clicked.connect(self.toggle_fullscreen)
         self.buttons_layout.addWidget(self.fullscreen_btn)
 
@@ -240,24 +240,20 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn {{
-                background-color: #6c5ce7;
-                color: #ffffff;
-                border: none;
-                border-radius: 16px;
-                min-width: 32px;
-                max-width: 32px;
-                min-height: 32px;
-                max-height: 32px;
-                font-size: 14px;
+            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn {{
+                min-width: 34px;
+                max-width: 34px;
+                min-height: 34px;
+                max-height: 34px;
+                border-radius: 6px;
+                font-size: 12px;
+                padding: 0px;
             }}
-            #play_btn:hover {{
-                background-color: #00f0ff;
-                color: #000000;
-                border: none;
-            }}
-            #play_btn:pressed {{
-                background-color: #00b5cc;
+            #settings_btn {{
+                min-height: 34px;
+                max-height: 34px;
+                padding: 6px 14px;
+                font-size: 12px;
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
