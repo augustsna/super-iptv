@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
   xtreamUrl: '',
   username: '',
   password: '',
-  adminPassword: '8899'
+  adminPassword: '1122'
 };
 
 // Ensure config file exists with default config if not already present

@@ -173,7 +173,7 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
 
   return (
     <div className="playlist-selector-container">
-      <div className="glass-panel" style={{ padding: '40px 40px 20px 40px', maxWidth: '400px', width: '100%', height: '600px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', margin: 'auto' }}>
+      <div className="glass-panel" style={{ padding: '40px 40px 20px 40px', maxWidth: '400px', width: '100%', height: '600px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
@@ -272,12 +272,6 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
               </div>
             )}
 
-            {adminSuccess && (
-              <div style={{ display: 'flex', gap: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: '20px', color: '#34d399', fontSize: '13px' }}>
-                <CheckCircle size={18} style={{ flexShrink: 0 }} />
-                <div>{adminSuccess}</div>
-              </div>
-            )}
 
             {adminLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
@@ -406,9 +400,19 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         )}
       </div>
 
+      {adminMode === 'config' && adminSuccess && (
+        <div className="animate-slide-in" style={{ display: 'flex', gap: '12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 'var(--radius-sm)', padding: '16px 20px', marginTop: '16px', color: '#34d399', fontSize: '14px', alignItems: 'center', justifyContent: 'center', maxWidth: '400px', width: '100%', backdropFilter: 'blur(12px)' }}>
+          <CheckCircle size={20} style={{ flexShrink: 0 }} />
+          <div>{adminSuccess}</div>
+        </div>
+      )}
+
       <style>{`
         .playlist-selector-container {
           display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
           height: 100vh;
           width: 100vw;
           padding: 24px;

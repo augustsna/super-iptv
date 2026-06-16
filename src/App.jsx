@@ -505,48 +505,60 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Category selector */}
-              {activeTab === 'live' && (
-                <div className="category-scroller">
-                  {categories.map((cat, idx) => (
-                    <button
-                      key={idx}
-                      className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
-                      onClick={() => setSelectedCategory(cat)}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Body: vertical category sidebar + content */}
+              <div className="panel-body">
 
-              {activeTab === 'movies' && (
-                <div className="category-scroller">
-                  {movieCategories.map((cat, idx) => (
-                    <button
-                      key={idx}
-                      className={`category-chip ${selectedMovieCategory === cat ? 'active' : ''}`}
-                      onClick={() => setSelectedMovieCategory(cat)}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {/* Vertical Category Sidebar */}
+                {activeTab === 'live' && (
+                  <div className="cat-sidebar">
+                    <div className="cat-sidebar-title">Categories</div>
+                    {categories.map((cat, idx) => (
+                      <button
+                        key={idx}
+                        className={`cat-sidebar-item ${selectedCategory === cat ? 'active' : ''}`}
+                        onClick={() => setSelectedCategory(cat)}
+                        title={cat}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              {activeTab === 'series' && !selectedSeriesItem && (
-                <div className="category-scroller">
-                  {seriesCategories.map((cat, idx) => (
-                    <button
-                      key={idx}
-                      className={`category-chip ${selectedSeriesCategory === cat ? 'active' : ''}`}
-                      onClick={() => setSelectedSeriesCategory(cat)}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {activeTab === 'movies' && (
+                  <div className="cat-sidebar">
+                    <div className="cat-sidebar-title">Categories</div>
+                    {movieCategories.map((cat, idx) => (
+                      <button
+                        key={idx}
+                        className={`cat-sidebar-item ${selectedMovieCategory === cat ? 'active' : ''}`}
+                        onClick={() => setSelectedMovieCategory(cat)}
+                        title={cat}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'series' && !selectedSeriesItem && (
+                  <div className="cat-sidebar">
+                    <div className="cat-sidebar-title">Categories</div>
+                    {seriesCategories.map((cat, idx) => (
+                      <button
+                        key={idx}
+                        className={`cat-sidebar-item ${selectedSeriesCategory === cat ? 'active' : ''}`}
+                        onClick={() => setSelectedSeriesCategory(cat)}
+                        title={cat}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* If no sidebar (favorites tab or series episode view), no left column */}
+                <div className="content-col">
 
               {/* Primary list renderer */}
               <div className="list-items-container">
@@ -874,8 +886,9 @@ export default function App() {
                   )
                 ) : null}
               </div>
+                </div>
+              </div>
             </div>
-
           </div>
         )}
       </main>
@@ -1003,45 +1016,79 @@ export default function App() {
           pointer-events: none;
         }
 
-        .category-scroller {
+        /* Panel body: side-by-side category sidebar + content */
+        .panel-body {
           display: flex;
-          gap: 8px;
-          padding: 12px 16px;
-          overflow-x: auto;
-          white-space: nowrap;
-          border-bottom: 1px solid var(--border-color);
+          flex: 1;
+          overflow: hidden;
+          min-height: 0;
+        }
+
+        /* Vertical category sidebar */
+        .cat-sidebar {
+          width: 140px;
+          min-width: 110px;
           flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+          border-right: 1px solid var(--border-color);
+          background: rgba(0,0,0,0.15);
+          padding: 8px 0;
+          gap: 2px;
         }
-        .category-scroller::-webkit-scrollbar {
-          height: 3px;
+        .cat-sidebar::-webkit-scrollbar { width: 3px; }
+        .cat-sidebar-title {
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--text-dark);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          padding: 4px 12px 8px;
         }
-        
-        .category-chip {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid var(--border-color);
+        .cat-sidebar-item {
+          display: block;
+          width: 100%;
+          text-align: left;
+          background: transparent;
+          border: none;
+          border-left: 2px solid transparent;
           color: var(--text-muted);
-          padding: 6px 14px;
-          border-radius: 20px;
           font-size: 12px;
           font-weight: 500;
+          padding: 7px 12px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-family: var(--font-sans);
         }
-        .category-chip:hover {
-          background: rgba(255,255,255,0.08);
+        .cat-sidebar-item:hover {
+          background: rgba(255,255,255,0.04);
           color: var(--text-main);
+          border-left-color: rgba(255,255,255,0.15);
         }
-        .category-chip.active {
-          background: var(--primary-glow);
-          border-color: var(--primary);
+        .cat-sidebar-item.active {
+          background: rgba(0,240,255,0.07);
+          border-left-color: var(--primary);
           color: var(--primary);
-          box-shadow: 0 0 6px var(--primary-glow);
+          font-weight: 600;
+        }
+
+        /* Content column to the right of sidebar */
+        .content-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          min-width: 0;
         }
 
         .list-items-container {
           flex: 1;
           overflow-y: auto;
-          padding: 16px;
+          padding: 12px;
         }
         
         .list-loading-state, .list-error-state, .list-empty-state {
@@ -1405,6 +1452,49 @@ export default function App() {
             overflow: hidden !important;
             min-height: 0;
             border-radius: var(--radius-sm);
+          }
+          .panel-body {
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+          }
+          /* On mobile: category sidebar becomes a horizontal strip */
+          .cat-sidebar {
+            width: 100% !important;
+            min-width: unset !important;
+            flex-direction: row !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-right: none !important;
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 12px !important;
+            gap: 8px !important;
+            flex-shrink: 0;
+            max-height: 56px;
+          }
+          .cat-sidebar-title { display: none; }
+          .cat-sidebar-item {
+            white-space: nowrap;
+            border-left: none !important;
+            border-bottom: none !important;
+            border: 1px solid var(--border-color) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            padding: 6px 14px !important;
+            font-size: 12px !important;
+            border-radius: 20px;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+          }
+          .cat-sidebar-item.active {
+            border-color: var(--primary) !important;
+            background: var(--primary-glow) !important;
+            color: var(--primary) !important;
+            box-shadow: 0 0 6px var(--primary-glow) !important;
+          }
+          .content-col {
+            flex: 1;
+            min-height: 0;
           }
           .list-items-container {
             flex: 1;

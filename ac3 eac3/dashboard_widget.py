@@ -926,6 +926,14 @@ class DashboardWidget(QWidget):
             all_item.setData(Qt.ItemDataRole.UserRole, None)
             list_widget.addItem(all_item)
             
+            # For Live TV: add virtual Sports category chip (webapp parity)
+            if mode == "live":
+                sports_item = QListWidgetItem("🏆 Sports")
+                sports_item.setData(Qt.ItemDataRole.UserRole, "__sports__")
+                sports_item.setForeground(QColor("#6c5ce7"))
+                sports_item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+                list_widget.addItem(sports_item)
+            
             for cat in categories:
                 item = QListWidgetItem(cat["category_name"])
                 item.setData(Qt.ItemDataRole.UserRole, cat["category_id"])
@@ -971,7 +979,48 @@ class DashboardWidget(QWidget):
             return
         item = self.live_cat_list.currentItem()
         category_id = item.data(Qt.ItemDataRole.UserRole)
-        self.load_streams("live", category_id, self.live_channel_list)
+        
+        if category_id == "__sports__":
+            self.load_sports_streams(keywords=["sport", "esporte", "desporto", "liga", "futbol", "football", "nfl", "nba", "mlb", "nhl", "ufc", "mma", "racing"])
+        else:
+            self.load_streams("live", category_id, self.live_channel_list)
+    
+    def load_sports_streams(self, keywords):
+        """Fetch all live streams, then filter client-side by sport-related keywords."""
+        self.live_channel_list.clear()
+        self.live_channel_list.addItem("Loading sports channels...")
+        self.live_channel_list.setEnabled(False)
+        
+        if self.stream_worker and self.stream_worker.isRunning():
+            self.stream_worker.terminate()
+            self.stream_worker.wait()
+        
+        # Fetch all streams (no category_id = all)
+        self.stream_worker = FetchStreamsWorker(self.client, "live", None)
+        
+        def on_finished(streams):
+            self.live_channel_list.setEnabled(True)
+            self.live_channel_list.clear()
+            
+            # Filter by any matching keyword in category_name or stream name
+            matched = [
+                s for s in streams
+                if any(
+                    kw in (s.get("category_name", "") + " " + s.get("name", "")).lower()
+                    for kw in keywords
+                )
+            ]
+            
+            if not matched:
+                self.live_channel_list.addItem("No sports channels found.")
+                return
+            
+            self.streams_data["live"] = matched
+            self.streams_loaded_count["live"] = 0
+            self.show_more_streams("live", self.live_channel_list)
+        
+        self.stream_worker.finished.connect(on_finished)
+        self.stream_worker.start()
 
     def filter_live_channels(self, query):
         self.filter_list_items("live", query, self.live_channel_list)
