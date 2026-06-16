@@ -22,6 +22,7 @@ class DashboardWidget(QWidget):
         super().__init__(parent)
         self.client = client
         self.player_widget = PlayerWidget(self)
+        self.player_widget.full_program_state_changed.connect(self.on_player_full_program_changed)
         
         # Cache for loaded categories and streams to avoid unnecessary network queries
         self.categories_cache = {"live": [], "vod": [], "series": []}
@@ -389,7 +390,9 @@ class DashboardWidget(QWidget):
         self.live_detail_layout.addWidget(self.mini_player_container, stretch=9)
         self.live_detail_layout.addWidget(self.live_info_title)
         self.live_detail_layout.addWidget(self.live_info_desc)
-        self.live_detail_layout.addStretch(1)
+        self.live_spacer = QWidget(self)
+        self.live_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.live_detail_layout.addWidget(self.live_spacer, stretch=1)
 
         # Add to splitter in new order: Player (left/middle), Categories (right-left), Channels (right-right)
         splitter.addWidget(self.live_detail_pane)
@@ -486,7 +489,9 @@ class DashboardWidget(QWidget):
         self.movie_detail_layout.addWidget(self.movie_desc_label)
         self.movie_detail_layout.addSpacing(15)
         self.movie_detail_layout.addWidget(self.movie_play_btn)
-        self.movie_detail_layout.addStretch(1)
+        self.movie_spacer = QWidget(self)
+        self.movie_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.movie_detail_layout.addWidget(self.movie_spacer, stretch=1)
 
         # Center: Categories
         self.movie_cat_widget = QWidget(self)
@@ -616,7 +621,9 @@ class DashboardWidget(QWidget):
         self.series_detail_layout.addSpacing(10)
         self.series_detail_layout.addWidget(self.episodes_list_label)
         self.series_detail_layout.addWidget(self.episodes_list)
-        self.series_detail_layout.addStretch(1)
+        self.series_spacer = QWidget(self)
+        self.series_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.series_detail_layout.addWidget(self.series_spacer, stretch=1)
 
         # Center: Categories
         self.series_cat_widget = QWidget(self)
@@ -1076,6 +1083,8 @@ class DashboardWidget(QWidget):
         self.live_channel_info_label.hide()
         self.mini_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "live"
+        self.player_widget.full_program_btn.setChecked(False)
+        self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Live TV Panel")
 
     def dock_player_to_movie(self):
@@ -1084,6 +1093,8 @@ class DashboardWidget(QWidget):
         self.movie_info_label.hide()
         self.movie_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "movie"
+        self.player_widget.full_program_btn.setChecked(False)
+        self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Movie Details Panel")
 
     def dock_player_to_series(self):
@@ -1092,6 +1103,8 @@ class DashboardWidget(QWidget):
         self.series_info_label.hide()
         self.series_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "series"
+        self.player_widget.full_program_btn.setChecked(False)
+        self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Series Details Panel")
 
     def toggle_sidebar(self):
@@ -1147,6 +1160,76 @@ class DashboardWidget(QWidget):
     def toggle_series_list(self):
         visible = self.series_list_toggle_btn.isChecked()
         self.series_list_widget.setVisible(visible)
+
+    def on_player_full_program_changed(self, is_full):
+        # Determine panel visibility (if player is full window size, panels are hidden)
+        visible = not is_full
+        
+        # 1. Update sidebar
+        self.sidebar.setVisible(visible)
+        text = "▶ Menu" if not visible else "◀ Menu"
+        self.sidebar_toggle_btn.setChecked(visible)
+        self.sidebar_toggle_btn.setText(text)
+        self.movie_sidebar_toggle_btn.setChecked(visible)
+        self.movie_sidebar_toggle_btn.setText(text)
+        self.series_sidebar_toggle_btn.setChecked(visible)
+        self.series_sidebar_toggle_btn.setText(text)
+
+        # 2. Update Categories, Main lists, and details layout widgets depending on current active index of content stack
+        active_tab = self.content_stack.currentIndex()
+        margin = 0 if is_full else 8
+        
+        if active_tab == 0:
+            # Live TV
+            self.live_cat_widget.setVisible(visible)
+            self.live_channel_widget.setVisible(visible)
+            self.cat_toggle_btn.setChecked(visible)
+            self.channel_toggle_btn.setChecked(visible)
+            
+            # Hide/show toggle buttons and details to make player full client size
+            self.sidebar_toggle_btn.setVisible(visible)
+            self.cat_toggle_btn.setVisible(visible)
+            self.channel_toggle_btn.setVisible(visible)
+            self.live_info_title.setVisible(visible)
+            self.live_info_desc.setVisible(visible)
+            self.live_spacer.setVisible(visible)
+            self.live_detail_layout.setContentsMargins(margin, margin, margin, margin)
+            
+        elif active_tab == 1:
+            # Movies
+            self.movie_cat_widget.setVisible(visible)
+            self.movie_list_widget.setVisible(visible)
+            self.movie_cat_toggle_btn.setChecked(visible)
+            self.movie_list_toggle_btn.setChecked(visible)
+            
+            self.movie_sidebar_toggle_btn.setVisible(visible)
+            self.movie_cat_toggle_btn.setVisible(visible)
+            self.movie_list_toggle_btn.setVisible(visible)
+            self.movie_title_label.setVisible(visible)
+            self.movie_rating_label.setVisible(visible)
+            self.movie_desc_label.setVisible(visible)
+            self.movie_play_btn.setVisible(visible and self.movie_list.currentItem() is not None)
+            self.movie_spacer.setVisible(visible)
+            self.movie_detail_layout.setContentsMargins(margin, margin, margin, margin)
+            
+        elif active_tab == 2:
+            # Series
+            self.series_cat_widget.setVisible(visible)
+            self.series_list_widget.setVisible(visible)
+            self.series_cat_toggle_btn.setChecked(visible)
+            self.series_list_toggle_btn.setChecked(visible)
+            
+            self.series_sidebar_toggle_btn.setVisible(visible)
+            self.series_cat_toggle_btn.setVisible(visible)
+            self.series_list_toggle_btn.setVisible(visible)
+            self.series_title_label.setVisible(visible)
+            self.series_desc_label.setVisible(visible)
+            self.season_combo_label.setVisible(visible)
+            self.season_combo.setVisible(visible)
+            self.episodes_list_label.setVisible(visible)
+            self.episodes_list.setVisible(visible)
+            self.series_spacer.setVisible(visible)
+            self.series_detail_layout.setContentsMargins(margin, margin, margin, margin)
 
     def closeEvent(self, event):
         self.abort_active_workers()

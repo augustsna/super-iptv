@@ -15,6 +15,7 @@ class PlayerWidget(QWidget):
     # Signals for media state
     playback_state_changed = pyqtSignal(str) # "playing", "paused", "stopped"
     time_changed = pyqtSignal(int, int)      # current_ms, total_ms
+    full_program_state_changed = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -167,6 +168,15 @@ class PlayerWidget(QWidget):
         self.settings_btn.clicked.connect(self.show_settings_menu)
         self.buttons_layout.addWidget(self.settings_btn)
 
+        # Full Program Size Button
+        self.full_program_btn = QPushButton("⧉", self.controls_panel)
+        self.full_program_btn.setObjectName("full_program_btn")
+        self.full_program_btn.setToolTip("Toggle Full Window Size")
+        self.full_program_btn.setCheckable(True)
+        self.full_program_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.full_program_btn.clicked.connect(self.toggle_full_program)
+        self.buttons_layout.addWidget(self.full_program_btn)
+
         # Fullscreen Button
         self.fullscreen_btn = QPushButton("⛶", self.controls_panel)
         self.fullscreen_btn.setObjectName("fullscreen_btn")
@@ -256,7 +266,7 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn {{
+            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn {{
                 min-width: 34px;
                 max-width: 34px;
                 min-height: 34px;
@@ -743,6 +753,10 @@ class PlayerWidget(QWidget):
         self.volume_slider.setValue(target)
         self.set_volume(target)
         self.show_controls()
+
+    def toggle_full_program(self):
+        is_full = self.full_program_btn.isChecked()
+        self.full_program_state_changed.emit(is_full)
 
     def closeEvent(self, event):
         self.stop()
