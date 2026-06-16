@@ -4,10 +4,10 @@ import vlc
 import logging
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QSlider, QLabel, QMenu, QSizePolicy, QStyle
+    QSlider, QLabel, QMenu, QSizePolicy, QStyle, QGraphicsOpacityEffect
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint
-from PyQt6.QtGui import QColor, QPalette, QIcon, QAction, QCursor
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint, QPropertyAnimation
+from PyQt6.QtGui import QColor, QPalette, QIcon, QAction, QCursor, QGuiApplication
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -188,6 +188,22 @@ class PlayerWidget(QWidget):
             if sys.platform.startswith("linux"):
                 self.media_player.set_xwindow(int(self.video_frame.winId()))
 
+        # Setup opacity effects for smooth transitions
+        self.header_opacity_effect = QGraphicsOpacityEffect(self.header_panel)
+        self.header_opacity_effect.setOpacity(1.0)
+        self.header_panel.setGraphicsEffect(self.header_opacity_effect)
+        
+        self.controls_opacity_effect = QGraphicsOpacityEffect(self.controls_panel)
+        self.controls_opacity_effect.setOpacity(1.0)
+        self.controls_panel.setGraphicsEffect(self.controls_opacity_effect)
+
+        # Create opacity property animations
+        self.header_animation = QPropertyAnimation(self.header_opacity_effect, b"opacity")
+        self.header_animation.setDuration(250) # 250ms smooth transition
+        
+        self.controls_animation = QPropertyAnimation(self.controls_opacity_effect, b"opacity")
+        self.controls_animation.setDuration(250)
+
     def update_styles(self):
         # Remove borders and rounded corners when in fullscreen mode to make it completely full screen
         radius = "0px" if self.fullscreen_mode else "12px"
@@ -246,14 +262,13 @@ class PlayerWidget(QWidget):
                 min-height: 34px;
                 max-height: 34px;
                 border-radius: 6px;
-                font-size: 12px;
+                font-size: 16px;
                 padding: 0px;
             }}
             #settings_btn {{
-                min-height: 34px;
-                max-height: 34px;
-                padding: 6px 14px;
-                font-size: 12px;
+                min-height: 22px;
+                max-height: 22px;
+                font-size: 10px;
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
@@ -552,6 +567,17 @@ class PlayerWidget(QWidget):
     # Fullscreen controls
     def toggle_fullscreen(self):
         if not self.fullscreen_mode:
+            # Get the screen where the player is currently shown (before detaching)
+            target_screen = None
+            try:
+                target_screen = self.screen()
+            except AttributeError:
+                if self.window() and self.window().windowHandle():
+                    target_screen = self.window().windowHandle().screen()
+            
+            if not target_screen:
+                target_screen = QGuiApplication.primaryScreen()
+
             # Enter fullscreen
             self.normal_parent = self.parent()
             self.normal_geometry = self.geometry()
@@ -559,6 +585,11 @@ class PlayerWidget(QWidget):
             # Detach from parent and configure as a frameless top-level window
             self.setParent(None)
             self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
+            
+            # Move to the correct screen before going fullscreen
+            if target_screen:
+                self.move(target_screen.geometry().topLeft())
+                
             self.showFullScreen()
             self.fullscreen_btn.setText("🗗")
             self.fullscreen_btn.setToolTip("Exit Fullscreen")
@@ -604,10 +635,26 @@ class PlayerWidget(QWidget):
         super().mouseMoveEvent(event)
 
     def show_controls(self):
-        self.header_panel.show()
-        self.controls_panel.show()
+        if not self.controls_visible:
+            self.header_panel.show()
+            self.controls_panel.show()
+            
+            # Stop any running fade-out animation
+            self.header_animation.stop()
+            self.controls_animation.stop()
+            
+            # Start fade-in animation
+            self.header_animation.setStartValue(self.header_opacity_effect.opacity())
+            self.header_animation.setEndValue(1.0)
+            self.header_animation.start()
+            
+            self.controls_animation.setStartValue(self.controls_opacity_effect.opacity())
+            self.controls_animation.setEndValue(1.0)
+            self.controls_animation.start()
+            
+            self.controls_visible = True
+            
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        self.controls_visible = True
         
         if self.media_player.get_state() == vlc.State.Playing and not self.settings_menu_open and not self.is_seeking:
             self.hide_timer.start()
@@ -616,11 +663,37 @@ class PlayerWidget(QWidget):
 
     def hide_controls(self):
         if self.media_player.get_state() == vlc.State.Playing and self.controls_visible:
-            self.header_panel.hide()
-            self.controls_panel.hide()
+            # Stop any running fade-in animation
+            self.header_animation.stop()
+            self.controls_animation.stop()
+            
+            # Start fade-out animation
+            self.header_animation.setStartValue(self.header_opacity_effect.opacity())
+            self.header_animation.setEndValue(0.0)
+            
+            self.controls_animation.setStartValue(self.controls_opacity_effect.opacity())
+            self.controls_animation.setEndValue(0.0)
+            
+            # Disconnect previous finished connections
+            try:
+                self.header_animation.finished.disconnect()
+            except TypeError:
+                pass
+                
+            self.header_animation.finished.connect(self.on_fade_out_finished)
+            
+            self.header_animation.start()
+            self.controls_animation.start()
+            
             self.setCursor(Qt.CursorShape.BlankCursor)
             self.controls_visible = False
             self.hide_timer.stop()
+
+    def on_fade_out_finished(self):
+        # Only hide from layout if the controls are still supposed to be invisible
+        if not self.controls_visible and self.header_opacity_effect.opacity() == 0.0:
+            self.header_panel.hide()
+            self.controls_panel.hide()
 
     def keyPressEvent(self, event):
         key = event.key()
