@@ -1,4 +1,5 @@
 import datetime
+import os
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QListWidget, 
     QListWidgetItem, QLabel, QLineEdit, QStackedWidget, QSplitter,
@@ -220,23 +221,42 @@ class DashboardWidget(QWidget):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
-        # App Logo text
-        logo = QLabel("📺 XTREME API", self.sidebar)
+        # App Logo
+        import os
+        brand_widget = QWidget(self.sidebar)
+        brand_layout = QHBoxLayout(brand_widget)
+        brand_layout.setContentsMargins(20, 15, 15, 15)
+        brand_layout.setSpacing(10)
+        
+        logo_icon = QLabel(brand_widget)
+        icon_path = os.path.join(os.path.dirname(__file__), "favicon1.png")
+        logo_icon.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        
+        logo = QLabel("Super Stream", brand_widget)
         logo.setObjectName("logoText")
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sidebar_layout.addWidget(logo)
+        logo.setStyleSheet("padding: 0px;")
+        
+        #brand_layout.addWidget(logo_icon)
+        brand_layout.addWidget(logo)
+        brand_layout.addStretch()
+        
+        sidebar_layout.addWidget(brand_widget)
 
         # Navigation Buttons
         self.nav_buttons = []
         nav_items = [
-            ("📺 Live TV", self.show_live_tv),
-            ("🎬 Movies", self.show_movies),
-            ("🍿 Series", self.show_series),
-            ("⚙ Settings", self.show_settings),
+            ("Live TV", self.show_live_tv, "tv"),
+            ("Movies", self.show_movies, "film"),
+            ("Series", self.show_series, "clapperboard"),
+            ("Settings", self.show_settings, "settings"),
         ]
         
-        for idx, (label, callback) in enumerate(nav_items):
-            btn = QPushButton(label, self.sidebar)
+        import os
+        for idx, (label, callback, icon_name) in enumerate(nav_items):
+            btn = QPushButton("  " + label, self.sidebar)
+            icon_path = os.path.join(os.path.dirname(__file__), "icons", f"{icon_name}.svg")
+            btn.setIcon(QIcon(icon_path))
+            btn.setIconSize(QSize(18, 18))
             btn.setCheckable(True)
             btn.setObjectName(f"nav_{idx}")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -252,7 +272,8 @@ class DashboardWidget(QWidget):
         sidebar_layout.addStretch()
 
         # Logout button
-        logout_btn = QPushButton("🚪 Logout", self.sidebar)
+        logout_btn = QPushButton("  Logout", self.sidebar)
+        logout_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logout.svg")))
         logout_btn.setProperty("class", "nav-btn")
         logout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         logout_btn.clicked.connect(self.logout)
@@ -329,7 +350,8 @@ class DashboardWidget(QWidget):
         toggle_layout.setContentsMargins(0, 0, 0, 0)
         toggle_layout.setSpacing(5)
         
-        self.sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.sidebar_toggle_btn = QPushButton("  Menu", self)
+        self.sidebar_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "menu.svg")))
         self.sidebar_toggle_btn.setCheckable(True)
         self.sidebar_toggle_btn.setChecked(True)
         self.sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -356,14 +378,16 @@ class DashboardWidget(QWidget):
         """)
         self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
         
-        self.cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.cat_toggle_btn = QPushButton("  Categories", self)
+        self.cat_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "folder.svg")))
         self.cat_toggle_btn.setCheckable(True)
         self.cat_toggle_btn.setChecked(True)
         self.cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.cat_toggle_btn.clicked.connect(self.toggle_categories)
         
-        self.channel_toggle_btn = QPushButton("📋 Channels", self)
+        self.channel_toggle_btn = QPushButton("  Channels", self)
+        self.channel_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "list.svg")))
         self.channel_toggle_btn.setCheckable(True)
         self.channel_toggle_btn.setChecked(True)
         self.channel_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -401,7 +425,9 @@ class DashboardWidget(QWidget):
         self.live_logo_label.setFixedSize(80, 80)
         self.live_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.live_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
-        self.live_logo_label.setText("📺")
+        self.live_logo_label.setText("")
+        self.live_logo_label.setStyleSheet("border: none; background-color: transparent;")
+        self.live_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "tv_large.svg")))
         live_meta_layout.addWidget(self.live_logo_label)
 
         # Text details layout
@@ -463,21 +489,24 @@ class DashboardWidget(QWidget):
         movie_toggle_layout.setContentsMargins(0, 0, 0, 0)
         movie_toggle_layout.setSpacing(5)
         
-        self.movie_sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.movie_sidebar_toggle_btn = QPushButton("  Menu", self)
+        self.movie_sidebar_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "menu.svg")))
         self.movie_sidebar_toggle_btn.setCheckable(True)
         self.movie_sidebar_toggle_btn.setChecked(True)
         self.movie_sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.movie_sidebar_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.movie_sidebar_toggle_btn.clicked.connect(self.toggle_movie_sidebar)
         
-        self.movie_cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.movie_cat_toggle_btn = QPushButton("  Categories", self)
+        self.movie_cat_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "folder.svg")))
         self.movie_cat_toggle_btn.setCheckable(True)
         self.movie_cat_toggle_btn.setChecked(True)
         self.movie_cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.movie_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.movie_cat_toggle_btn.clicked.connect(self.toggle_movie_categories)
         
-        self.movie_list_toggle_btn = QPushButton("🎬 Movies", self)
+        self.movie_list_toggle_btn = QPushButton("  Movies", self)
+        self.movie_list_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "list.svg")))
         self.movie_list_toggle_btn.setCheckable(True)
         self.movie_list_toggle_btn.setChecked(True)
         self.movie_list_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -515,7 +544,9 @@ class DashboardWidget(QWidget):
         self.movie_logo_label.setFixedSize(80, 120)
         self.movie_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.movie_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
-        self.movie_logo_label.setText("🎬")
+        self.movie_logo_label.setText("")
+        self.movie_logo_label.setStyleSheet("border: none; background-color: transparent;")
+        self.movie_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "film_large.svg")))
         movie_meta_layout.addWidget(self.movie_logo_label)
 
         # Text details layout
@@ -618,21 +649,24 @@ class DashboardWidget(QWidget):
         series_toggle_layout.setContentsMargins(0, 0, 0, 0)
         series_toggle_layout.setSpacing(5)
         
-        self.series_sidebar_toggle_btn = QPushButton("◀ Menu", self)
+        self.series_sidebar_toggle_btn = QPushButton("  Menu", self)
+        self.series_sidebar_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "menu.svg")))
         self.series_sidebar_toggle_btn.setCheckable(True)
         self.series_sidebar_toggle_btn.setChecked(True)
         self.series_sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.series_sidebar_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.series_sidebar_toggle_btn.clicked.connect(self.toggle_series_sidebar)
         
-        self.series_cat_toggle_btn = QPushButton("📂 Categories", self)
+        self.series_cat_toggle_btn = QPushButton("  Categories", self)
+        self.series_cat_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "folder.svg")))
         self.series_cat_toggle_btn.setCheckable(True)
         self.series_cat_toggle_btn.setChecked(True)
         self.series_cat_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.series_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.series_cat_toggle_btn.clicked.connect(self.toggle_series_categories)
         
-        self.series_list_toggle_btn = QPushButton("🍿 Series", self)
+        self.series_list_toggle_btn = QPushButton("  Series", self)
+        self.series_list_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "list.svg")))
         self.series_list_toggle_btn.setCheckable(True)
         self.series_list_toggle_btn.setChecked(True)
         self.series_list_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -670,7 +704,9 @@ class DashboardWidget(QWidget):
         self.series_logo_label.setFixedSize(80, 120)
         self.series_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.series_logo_label.setStyleSheet("border: 1px solid #202026; border-radius: 6px; background-color: #121215; font-size: 36px; color: #8f8f9e;")
-        self.series_logo_label.setText("🍿")
+        self.series_logo_label.setText("")
+        self.series_logo_label.setStyleSheet("border: none; background-color: transparent;")
+        self.series_logo_label.setPixmap(QPixmap(os.path.join(os.path.dirname(__file__), "icons", "clapperboard_large.svg")))
         series_meta_layout.addWidget(self.series_logo_label)
 
         # Text details layout

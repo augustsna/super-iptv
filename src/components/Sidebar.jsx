@@ -34,7 +34,7 @@ export default function Sidebar({
     <aside className="sidebar-container glass-panel">
       {/* Brand logo */}
       <button className="sidebar-brand" onClick={onHome} title="Go to Home">
-        <Radio className="brand-icon glow-text-primary" size={24} />
+        <img src="/favicon.svg" alt="Super Stream Logo" className="brand-icon" style={{ width: 28, height: 28 }} />
         <span className="brand-title text-digital glow-text-primary">Super Stream</span>
       </button>
 

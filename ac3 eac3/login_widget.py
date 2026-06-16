@@ -127,7 +127,7 @@ class LoginWidget(QWidget):
         card_layout.setSpacing(15)
 
         # Header
-        title = QLabel("XTREME STREAMER", self)
+        title = QLabel("SUPER STREAM", self)
         title.setObjectName("title")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         

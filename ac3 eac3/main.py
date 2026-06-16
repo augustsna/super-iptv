@@ -13,7 +13,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Xtreme API Dolby Streaming Player")
+        self.setWindowTitle("Super Stream")
+        import os
+        icon_path = os.path.join(os.path.dirname(__file__), "favicon.png")
+        self.setWindowIcon(QIcon(icon_path))
         self.resize(1100, 700)
         
         # Central Stacked Widget
