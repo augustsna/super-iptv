@@ -178,8 +178,8 @@ export default function Sidebar({
           box-shadow: 0 0 6px var(--accent);
         }
         .playlist-name {
-          font-size: 12px;
-          color: var(--text-muted);
+          font-size: 10px;
+          color: var(--text-dark);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
