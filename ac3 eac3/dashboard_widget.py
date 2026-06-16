@@ -318,17 +318,57 @@ class DashboardWidget(QWidget):
                         color = "#05ffc5" if days > 7 else "#f87171"
                 
                 expiry_widget = QWidget(self.sidebar)
+                expiry_widget.setObjectName("expiry_widget")
                 expiry_layout = QVBoxLayout(expiry_widget)
-                expiry_layout.setContentsMargins(20, 10, 15, 10)
+                expiry_layout.setContentsMargins(8, 8, 8, 8)
                 expiry_layout.setSpacing(2)
                 
+                expiry_widget.setStyleSheet("""
+                    #expiry_widget {
+                        background-color: rgba(18, 18, 21, 0.4);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border-radius: 6px;
+                    }
+                    QLabel {
+                        border: none;
+                        background: transparent;
+                    }
+                """)
+                
+                # Top row: Neon Dot + Portal Label
+                portal_row = QWidget(expiry_widget)
+                portal_layout = QHBoxLayout(portal_row)
+                portal_layout.setContentsMargins(0, 0, 0, 0)
+                portal_layout.setSpacing(4)
+                
+                neon_dot = QLabel("●", portal_row)
+                neon_dot.setStyleSheet("color: #10b981; font-size: 10px;")
+                
+                portal_label = QLabel("XTREAM PORTAL", portal_row)
+                portal_label.setStyleSheet("color: #6b7280; font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+                
+                portal_layout.addWidget(neon_dot)
+                portal_layout.addWidget(portal_label)
+                portal_layout.addStretch()
+                
+                expiry_layout.addWidget(portal_row)
+                
+                # Server URL
+                host_str = getattr(self.client, 'host', 's1.dnspass.xyz:80')
+                host_str = host_str.replace("http://", "").replace("https://", "").strip("/")
+                
+                server_url_label = QLabel(host_str, expiry_widget)
+                server_url_label.setStyleSheet("color: #e5e7eb; font-size: 10px; font-family: monospace;")
+                expiry_layout.addWidget(server_url_label)
+                
+                # Expiry Details
                 exp_label = QLabel(exp_text, expiry_widget)
-                exp_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+                exp_label.setStyleSheet("color: #9ca3af; font-size: 9px;")
                 expiry_layout.addWidget(exp_label)
                 
                 if exp_remain:
-                    remain_label = QLabel(f"● {exp_remain}", expiry_widget)
-                    remain_label.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold;")
+                    remain_label = QLabel(exp_remain, expiry_widget)
+                    remain_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: bold;")
                     expiry_layout.addWidget(remain_label)
                 
                 sidebar_layout.addWidget(expiry_widget)

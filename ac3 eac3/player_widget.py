@@ -30,6 +30,8 @@ class PlayerWidget(QWidget):
         
         self.is_seeking = False
         self.tracks_loaded = False
+        self.badges_loaded = False
+        self.badge_update_count = 0
         self.stream_url = ""
         self.fullscreen_mode = False
         self.normal_geometry = None
@@ -70,9 +72,10 @@ class PlayerWidget(QWidget):
         self.title_label.setObjectName("title_label")
         header_layout.addWidget(self.title_label)
 
-        self.badge_label = QLabel("", self.header_panel)
-        self.badge_label.hide()
-        header_layout.addWidget(self.badge_label)
+        # Metadata Badges Container
+        self.meta_badges_layout = QHBoxLayout()
+        self.meta_badges_layout.setSpacing(6)
+        header_layout.addLayout(self.meta_badges_layout)
         
         header_layout.addStretch()
         self.main_layout.addWidget(self.header_panel)
@@ -373,7 +376,9 @@ class PlayerWidget(QWidget):
                 self.title_label.setText(title)
             else:
                 self.title_label.setText("Playing Media")
-            self.badge_label.hide()
+            
+            self.clear_badges()
+            self.badges_loaded = False
             
             self.show_controls()
             self.loading_overlay.show()
@@ -405,6 +410,9 @@ class PlayerWidget(QWidget):
         self.play_btn.setText("▶")
         self.playback_state_changed.emit("stopped")
         self.tracks_loaded = False
+        self.badges_loaded = False
+        self.badge_update_count = 0
+        self.clear_badges()
         self.loading_overlay.hide()
         self.show_controls()
 
@@ -463,6 +471,12 @@ class PlayerWidget(QWidget):
                 if tracks and len(tracks) > 1:
                     logging.info(f"VLC Player: Audio tracks parsed dynamically: {tracks}")
                     self.tracks_loaded = True
+            
+            # Fetch badges slightly after playing starts so VLC has time to decode headers
+            # We poll for the first few seconds because audio/video tracks may appear asynchronously
+            if not self.badges_loaded or self.badge_update_count < 30:
+                self.update_meta_badges()
+                self.badge_update_count += 1
         elif state in (vlc.State.Opening, vlc.State.Buffering):
             self.loading_overlay.show()
             self.loading_overlay.setGeometry(0, 0, self.video_frame.width(), self.video_frame.height())
@@ -470,6 +484,92 @@ class PlayerWidget(QWidget):
         # Check if playback ended
         if state == vlc.State.Ended:
             self.stop()
+
+    def clear_badges(self):
+        for i in reversed(range(self.meta_badges_layout.count())):
+            widget = self.meta_badges_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+
+    def update_meta_badges(self):
+        w, h = self.media_player.video_get_size(0)
+        fps = self.media_player.get_fps()
+        length = self.media_player.get_length()
+        
+        # We need video dimension or length to build badges, if missing, skip and retry later
+        if h <= 0 and fps <= 0 and length == 0:
+            return
+            
+        self.badges_loaded = True
+        self.clear_badges()
+        badges = []
+        
+        # Live Badge
+        if length <= 0:
+            badges.append(("● LIVE", "#ff4757"))
+            
+        # Resolution
+        if w > 0 and h > 0:
+            res = f"{h}p"
+            if h >= 2160: res = "4K"
+            elif h >= 1080: res = "1080p"
+            elif h >= 720: res = "720p"
+            badges.append((res, "#00f0ff"))
+            
+        # FPS
+        if fps > 0:
+            badges.append((f"{round(fps)} fps", "#00f0ff"))
+            
+        # Codecs
+        media = self.media_player.get_media()
+        if media:
+            tracks = media.tracks_get()
+            if tracks:
+                for track in tracks:
+                    try:
+                        codec_val = track.codec
+                        codec_str = ""
+                        if isinstance(codec_val, int):
+                            codec_str = codec_val.to_bytes(4, byteorder='little').decode('ascii', 'ignore').strip()
+                        else:
+                            codec_str = str(codec_val)
+                            
+                        # Normalize known names for aesthetics
+                        c_lower = codec_str.lower().strip()
+                        if "264" in c_lower: codec_str = "H264"
+                        elif "265" in c_lower or "hevc" in c_lower: codec_str = "HEVC"
+                        elif "eac3" in c_lower: codec_str = "EAC3"
+                        elif "ac3" in c_lower or "a52" in c_lower: codec_str = "AC3"
+                        elif "mp4a" in c_lower: codec_str = "MP4A"
+                        elif "aac" in c_lower: codec_str = "AAC"
+                        elif "mpga" in c_lower or "mp3" in c_lower: codec_str = "MP3"
+                        else: codec_str = codec_str.upper()
+                        
+                        # Python-vlc track.type can be an int (1=audio, 2=video) or Enum
+                        if track.type == getattr(vlc.TrackType, 'video', 2) or track.type == 2:
+                            badges.append((codec_str, "#00f0ff"))
+                        elif track.type == getattr(vlc.TrackType, 'audio', 1) or track.type == 1:
+                            try:
+                                channels = track.audio.contents.channels
+                            except Exception:
+                                channels = 2
+                            ch_str = "5.1" if channels >= 6 else ("2.0" if channels == 2 else str(channels))
+                            badges.append((f"{codec_str} {ch_str}", "#00f0ff"))
+                    except Exception:
+                        pass
+                        
+        for text, color in badges:
+            lbl = QLabel(text)
+            lbl.setStyleSheet(f"""
+                color: {color}; 
+                border: 1px solid rgba({255 if color == '#ff4757' else 0}, {71 if color == '#ff4757' else 240}, {87 if color == '#ff4757' else 255}, 0.3); 
+                border-radius: 3px; 
+                padding: 1px 4px; 
+                font-weight: bold; 
+                font-size: 9px; 
+                background: rgba({255 if color == '#ff4757' else 0}, {71 if color == '#ff4757' else 240}, {87 if color == '#ff4757' else 255}, 0.1);
+            """)
+            self.meta_badges_layout.addWidget(lbl)
 
     def show_settings_menu(self):
         self.settings_menu_open = True
