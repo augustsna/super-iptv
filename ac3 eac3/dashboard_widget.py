@@ -277,6 +277,7 @@ class DashboardWidget(QWidget):
         
         # Left: Categories
         cat_widget = QWidget(self)
+        cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -290,6 +291,7 @@ class DashboardWidget(QWidget):
 
         # Center: Channel list & search bar
         channel_widget = QWidget(self)
+        channel_widget.setMinimumWidth(120)
         channel_layout = QVBoxLayout(channel_widget)
         channel_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -306,6 +308,7 @@ class DashboardWidget(QWidget):
 
         # Right: Mini Player and Channel Info Details
         self.live_detail_pane = QFrame(self)
+        self.live_detail_pane.setMinimumWidth(320)
         self.live_detail_pane.setProperty("class", "detail-pane")
         self.live_detail_layout = QVBoxLayout(self.live_detail_pane)
         self.live_detail_layout.setContentsMargins(5, 5, 5, 5)
@@ -340,8 +343,8 @@ class DashboardWidget(QWidget):
         splitter.addWidget(cat_widget)
         splitter.addWidget(channel_widget)
         
-        # Set default splitter sizes (Player: 55%, Categories: 15%, Streams: 30%)
-        splitter.setSizes([470, 180, 250])
+        # Set default splitter sizes (Player: 55%, Categories: 22.5%, Streams: 22.5%)
+        splitter.setSizes([470, 215, 215])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -356,6 +359,7 @@ class DashboardWidget(QWidget):
 
         # Left: Categories
         cat_widget = QWidget(self)
+        cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         self.movie_cat_list = QListWidget(self)
@@ -367,6 +371,7 @@ class DashboardWidget(QWidget):
 
         # Center: Movie search & list
         movies_widget = QWidget(self)
+        movies_widget.setMinimumWidth(120)
         movies_layout = QVBoxLayout(movies_widget)
         movies_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -384,6 +389,7 @@ class DashboardWidget(QWidget):
 
         # Right: Movie Details View
         self.movie_detail_pane = QFrame(self)
+        self.movie_detail_pane.setMinimumWidth(320)
         self.movie_detail_pane.setProperty("class", "detail-pane")
         self.movie_detail_layout = QVBoxLayout(self.movie_detail_pane)
         
@@ -411,7 +417,7 @@ class DashboardWidget(QWidget):
         self.movie_detail_layout.addStretch()
 
         splitter.addWidget(self.movie_detail_pane)
-        splitter.setSizes([180, 250, 470])
+        splitter.setSizes([215, 215, 470])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
@@ -426,6 +432,7 @@ class DashboardWidget(QWidget):
 
         # Left: Categories
         cat_widget = QWidget(self)
+        cat_widget.setMinimumWidth(120)
         cat_layout = QVBoxLayout(cat_widget)
         cat_layout.setContentsMargins(0, 0, 0, 0)
         self.series_cat_list = QListWidget(self)
@@ -437,6 +444,7 @@ class DashboardWidget(QWidget):
 
         # Center: Series List
         series_widget = QWidget(self)
+        series_widget.setMinimumWidth(120)
         series_layout = QVBoxLayout(series_widget)
         series_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -454,6 +462,7 @@ class DashboardWidget(QWidget):
 
         # Right: Series Info & Episodes Navigator
         self.series_detail_pane = QFrame(self)
+        self.series_detail_pane.setMinimumWidth(320)
         self.series_detail_pane.setProperty("class", "detail-pane")
         self.series_detail_layout = QVBoxLayout(self.series_detail_pane)
         
@@ -488,7 +497,7 @@ class DashboardWidget(QWidget):
         self.series_detail_layout.addWidget(self.episodes_list)
         
         splitter.addWidget(self.series_detail_pane)
-        splitter.setSizes([180, 250, 470])
+        splitter.setSizes([215, 215, 470])
 
         layout.addWidget(splitter)
         self.content_stack.addWidget(panel)
