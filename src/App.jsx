@@ -145,6 +145,7 @@ export default function App() {
     if (!saved) return;
     setUseProxy(saved.useProxy ?? true);
     setProxyUrl(saved.proxyUrl ?? 'https://api.allorigins.win/raw?url=');
+    setActiveTab('live'); // Always default to Live TV tab on start
     if (saved.type === 'xtream') {
       fetchXtreamLive(saved.credentials, saved.useProxy, saved.proxyUrl);
     } else if (saved.type === 'm3u') {

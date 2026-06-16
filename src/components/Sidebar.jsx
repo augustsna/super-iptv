@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tv, Film, Clapperboard, Heart, Settings, LogOut, Radio, Clock } from 'lucide-react';
+import { Tv, Film, Clapperboard, Heart, Settings, LogOut, Radio } from 'lucide-react';
 
 function getExpiryInfo(expDate) {
   if (!expDate || expDate === '0') return { label: 'Unlimited', remaining: null, color: 'var(--accent)' };
@@ -83,8 +83,8 @@ export default function Sidebar({
         </button>
 
         {/* Playlist Status Info */}
-        <div className="playlist-status">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <div className="playlist-status" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="status-dot online"></span>
             <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-main)', letterSpacing: '0.05em' }}>
               {playlistInfo?.type === 'xtream' ? 'Xtream Portal' : 'M3U Playlist'}
@@ -96,18 +96,17 @@ export default function Sidebar({
               : playlistInfo?.name || 'Local File'}
           </div>
           {playlistInfo?.userInfo?.exp_date && (
-            <div style={{ marginTop: '8px' }}>
+            <>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-dark)' }}>
-                <Clock size={10} />
                 <span>Expires: {expiry.label}</span>
               </div>
               {expiry.remaining && (
-                <div style={{ fontSize: '10px', fontWeight: '600', color: expiry.color, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '600', color: expiry.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: expiry.color, display: 'inline-block', boxShadow: `0 0 4px ${expiry.color}` }}></span>
                   {expiry.remaining}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
