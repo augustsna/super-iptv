@@ -51,6 +51,10 @@ class MainWindow(QMainWindow):
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
             }
             QScrollBar:horizontal {
                 border: none;
@@ -68,6 +72,10 @@ class MainWindow(QMainWindow):
             }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 width: 0px;
+                background: none;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
             }
         """)
 
