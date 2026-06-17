@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2 } from 'lucide-react';
 
-export default function Player({ channel }) {
+export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const mpegtsRef = useRef(null);
@@ -519,6 +519,19 @@ export default function Player({ channel }) {
     };
   }, []);
 
+  // Escape key handler to exit Full Browser mode
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullBrowser) {
+        onToggleFullBrowser();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullBrowser, onToggleFullBrowser]);
+
   // Auto-hide controls on mobile after 3 seconds of inactivity
   const resetControlsTimer = () => {
     setShowControls(true);
@@ -808,6 +821,14 @@ export default function Player({ channel }) {
                         <Shrink size={16} />
                       </button>
                     )}
+
+                    <button 
+                      className={`control-btn ${isFullBrowser ? 'active' : ''}`} 
+                      onClick={onToggleFullBrowser} 
+                      title={isFullBrowser ? "Exit Full Browser" : "Expand to Full Browser"}
+                    >
+                      {isFullBrowser ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    </button>
 
                     <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
                       {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}

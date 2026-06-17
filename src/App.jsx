@@ -50,6 +50,14 @@ export default function App() {
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isFullBrowser, setIsFullBrowser] = useState(false);
+
+  // Reset full browser mode when no channel is selected
+  useEffect(() => {
+    if (!selectedChannel) {
+      setIsFullBrowser(false);
+    }
+  }, [selectedChannel]);
 
 
   // Proxy state (synced with PlaylistSelector)
@@ -431,7 +439,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${isFullBrowser ? 'full-browser-mode' : ''}`}>
       {/* Mobile Top Header */}
       <header className="mobile-header">
         <button
@@ -487,7 +495,11 @@ export default function App() {
             {/* Left side: player only */}
             <div className="player-column">
               <div className={`player-wrapper-container ${!selectedChannel ? 'placeholder' : ''}`}>
-                <Player channel={selectedChannel} />
+                <Player 
+                  channel={selectedChannel} 
+                  isFullBrowser={isFullBrowser}
+                  onToggleFullBrowser={() => setIsFullBrowser(!isFullBrowser)}
+                />
               </div>
             </div>
 
@@ -969,6 +981,61 @@ export default function App() {
       </nav>
 
       <style>{`
+        /* Full Browser Mode */
+        .full-browser-mode .sidebar-container {
+          display: none !important;
+        }
+        .full-browser-mode .main-list-panel {
+          display: none !important;
+        }
+        .full-browser-mode .mobile-header {
+          display: none !important;
+        }
+        .full-browser-mode .mobile-bottom-nav {
+          display: none !important;
+        }
+        .full-browser-mode .dashboard-grid {
+          grid-template-columns: 1fr !important;
+          grid-template-rows: 1fr !important;
+          padding: 0 !important;
+          gap: 0 !important;
+          height: 100vh !important;
+          height: 100dvh !important;
+          width: 100vw !important;
+          max-height: none !important;
+          overflow: hidden !important;
+        }
+        .full-browser-mode .player-column {
+          height: 100% !important;
+          width: 100% !important;
+          max-height: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .full-browser-mode .player-wrapper-container {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          height: 100dvh !important;
+          z-index: 9999 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border-radius: 0 !important;
+          background: #000 !important;
+          max-height: none !important;
+          max-width: none !important;
+          min-height: 0 !important;
+          min-width: 0 !important;
+          aspect-ratio: auto !important;
+        }
+        .full-browser-mode .player-wrapper {
+          border-radius: 0 !important;
+          height: 100% !important;
+          width: 100% !important;
+        }
+
         .player-column {
           height: 100%;
           display: flex;
