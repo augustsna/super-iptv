@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QLabel, QLineEdit, QStackedWidget, QSplitter,
     QFrame, QComboBox, QScrollArea, QSizePolicy, QStyle, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QTimer, QSettings
 from PyQt6.QtGui import QColor, QFont, QPixmap, QIcon
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
@@ -22,6 +22,11 @@ class DashboardWidget(QWidget):
 
     def __init__(self, client, parent=None):
         super().__init__(parent)
+        self.settings = QSettings("XtreamPlayer", "AppSettings")
+        self.batch_combo = None
+        self.live_batch_combo = None
+        self.movie_batch_combo = None
+        self.series_batch_combo = None
         self.client = client
         self.player_widget = PlayerWidget(self)
         self.player_widget.full_program_state_changed.connect(self.on_player_full_program_changed)
@@ -49,6 +54,43 @@ class DashboardWidget(QWidget):
         
         # Trigger initial loading of Live TV categories
         self.show_live_tv()
+
+    def on_batch_limit_changed(self, text):
+        for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
+            if combo is not None and combo.currentText() != text:
+                combo.blockSignals(True)
+                combo.setCurrentText(text)
+                combo.blockSignals(False)
+        self.reload_active_tab_streams()
+
+    def reload_active_tab_streams(self):
+        active_tab = self.content_stack.currentIndex()
+        if active_tab == 0:
+            self.on_live_category_changed(self.live_cat_list.currentRow())
+        elif active_tab == 1:
+            self.on_movie_category_changed(self.movie_cat_list.currentRow())
+        elif active_tab == 2:
+            self.on_series_category_changed(self.series_cat_list.currentRow())
+
+    def get_batch_size(self):
+        text = None
+        for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
+            if combo is not None:
+                text = combo.currentText()
+                break
+        if not text:
+            text = "50"
+            
+        text = text.strip().lower()
+        if "all" in text:
+            return 9999999
+        digits = "".join([c for c in text if c.isdigit()])
+        if digits:
+            try:
+                return max(1, int(digits))
+            except ValueError:
+                pass
+        return 50  # fallback default
 
     def setup_ui(self):
         self.setObjectName("DashboardWidget")
@@ -596,8 +638,48 @@ class DashboardWidget(QWidget):
         self.live_lists_splitter.addWidget(self.live_cat_widget)
         self.live_lists_splitter.addWidget(self.live_channel_widget)
         self.live_lists_splitter.setSizes([215, 215])
-
         wrapper_layout.addWidget(self.live_lists_splitter)
+
+        # Bottom load amount bar matching webapp style
+        saved_limit = "50"
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(5, 0, 5, 0)
+        load_label = QLabel("Load amount:", self)
+        load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        
+        self.live_batch_combo = QComboBox(self)
+        self.live_batch_combo.setEditable(True)
+        self.live_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
+        self.live_batch_combo.setStyleSheet("""
+            QComboBox {
+                color: white;
+                background-color: #1e2538;
+                padding: 4px 8px;
+                border: 1px solid #2c354f;
+                border-radius: 4px;
+                font-size: 11px;
+                min-width: 90px;
+                max-width: 120px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #10141e;
+                color: white;
+                selection-background-color: #00f0ff;
+                selection-color: black;
+            }
+            QLineEdit {
+                color: white;
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        self.live_batch_combo.setCurrentText(saved_limit)
+        self.live_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
+        
+        bottom_layout.addStretch()
+        bottom_layout.addWidget(load_label)
+        bottom_layout.addWidget(self.live_batch_combo)
+        wrapper_layout.addLayout(bottom_layout)
 
         # Add to splitter in new order: Player (left/middle), Lists wrapper (right)
         self.live_splitter.addWidget(self.live_detail_pane)
@@ -774,8 +856,26 @@ class DashboardWidget(QWidget):
         self.movie_lists_splitter.addWidget(self.movie_cat_widget)
         self.movie_lists_splitter.addWidget(self.movie_list_widget)
         self.movie_lists_splitter.setSizes([215, 215])
-
         wrapper_layout.addWidget(self.movie_lists_splitter)
+
+        # Bottom load amount bar matching webapp style
+        saved_limit = "50"
+        movie_bottom_layout = QHBoxLayout()
+        movie_bottom_layout.setContentsMargins(5, 0, 5, 0)
+        movie_load_label = QLabel("Load amount:", self)
+        movie_load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        
+        self.movie_batch_combo = QComboBox(self)
+        self.movie_batch_combo.setEditable(True)
+        self.movie_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
+        self.movie_batch_combo.setStyleSheet(self.live_batch_combo.styleSheet())
+        self.movie_batch_combo.setCurrentText(saved_limit)
+        self.movie_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
+        
+        movie_bottom_layout.addStretch()
+        movie_bottom_layout.addWidget(movie_load_label)
+        movie_bottom_layout.addWidget(self.movie_batch_combo)
+        wrapper_layout.addLayout(movie_bottom_layout)
 
         self.movie_splitter.addWidget(self.movie_detail_pane)
         self.movie_splitter.addWidget(self.movie_lists_wrapper)
@@ -957,8 +1057,26 @@ class DashboardWidget(QWidget):
         self.series_lists_splitter.addWidget(self.series_cat_widget)
         self.series_lists_splitter.addWidget(self.series_list_widget)
         self.series_lists_splitter.setSizes([215, 215])
-
         wrapper_layout.addWidget(self.series_lists_splitter)
+
+        # Bottom load amount bar matching webapp style
+        saved_limit = "50"
+        series_bottom_layout = QHBoxLayout()
+        series_bottom_layout.setContentsMargins(5, 0, 5, 0)
+        series_load_label = QLabel("Load amount:", self)
+        series_load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        
+        self.series_batch_combo = QComboBox(self)
+        self.series_batch_combo.setEditable(True)
+        self.series_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
+        self.series_batch_combo.setStyleSheet(self.live_batch_combo.styleSheet())
+        self.series_batch_combo.setCurrentText(saved_limit)
+        self.series_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
+        
+        series_bottom_layout.addStretch()
+        series_bottom_layout.addWidget(series_load_label)
+        series_bottom_layout.addWidget(self.series_batch_combo)
+        wrapper_layout.addLayout(series_bottom_layout)
 
         self.series_splitter.addWidget(self.series_detail_pane)
         self.series_splitter.addWidget(self.series_lists_wrapper)
@@ -1067,8 +1185,37 @@ class DashboardWidget(QWidget):
         batch_label.setFixedWidth(200)
         
         self.batch_combo = QComboBox(card)
-        self.batch_combo.addItems(["50 items", "100 items", "200 items", "500 items", "1000 items", "Show All"])
-        self.batch_combo.setStyleSheet("color: white; background-color: #1e2538; padding: 5px; border-radius: 4px; min-width: 120px;")
+        self.batch_combo.setEditable(True)
+        self.batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
+        self.batch_combo.setStyleSheet("""
+            QComboBox {
+                color: white;
+                background-color: #1e2538;
+                padding: 5px;
+                border: 1px solid #2c354f;
+                border-radius: 4px;
+                min-width: 120px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #10141e;
+                color: white;
+                selection-background-color: #00f0ff;
+                selection-color: black;
+                border: 1px solid #1e2538;
+            }
+            QComboBox:focus {
+                border-color: #00f0ff;
+            }
+            QLineEdit {
+                color: white;
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        
+        saved_limit = "50"
+        self.batch_combo.setCurrentText(saved_limit)
+        self.batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
         
         batch_layout.addWidget(batch_label)
         batch_layout.addWidget(self.batch_combo)
@@ -1851,7 +1998,7 @@ class DashboardWidget(QWidget):
         all_streams = self.streams_data.get(mode, [])
         current_count = self.streams_loaded_count.get(mode, 0)
         
-        PAGE_SIZE = 50
+        PAGE_SIZE = self.get_batch_size()
         next_count = min(len(all_streams), current_count + PAGE_SIZE)
         
         for i in range(current_count, next_count):
@@ -1873,7 +2020,8 @@ class DashboardWidget(QWidget):
         self.streams_loaded_count[mode] = next_count
         
         if next_count < len(all_streams):
-            more_item = QListWidgetItem("➕ Load More Items...")
+            remaining = len(all_streams) - next_count
+            more_item = QListWidgetItem(f"➕ Load More ({remaining} remaining)")
             more_item.setData(Qt.ItemDataRole.UserRole + 2, "load_more")
             more_item.setForeground(QColor("#00f0ff"))
             more_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))

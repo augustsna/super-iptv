@@ -4,9 +4,10 @@ import vlc
 import logging
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QSlider, QLabel, QMenu, QSizePolicy, QStyle, QGraphicsOpacityEffect
+    QSlider, QLabel, QMenu, QSizePolicy, QStyle, QGraphicsOpacityEffect,
+    QFileDialog
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint, QPropertyAnimation
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint, QPropertyAnimation, QUrl
 from PyQt6.QtGui import QColor, QPalette, QIcon, QAction, QCursor, QGuiApplication
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -752,12 +753,41 @@ class PlayerWidget(QWidget):
                 action.setChecked(track_id == active_track)
                 action.triggered.connect(lambda checked, t_id=track_id: self.select_cc_track(t_id))
 
+        menu.addSeparator()
+        upload_action = menu.addAction("📂 Upload Local Subtitles (.srt)...")
+        upload_action.triggered.connect(self.upload_local_srt)
+
         button_pos = self.cc_btn.mapToGlobal(QPoint(0, 0))
         menu_size = menu.sizeHint()
         menu_x = button_pos.x() + (self.cc_btn.width() - menu_size.width()) // 2
         menu_y = button_pos.y() - menu_size.height() - 6
 
         menu.exec(QPoint(menu_x, menu_y))
+
+    def upload_local_srt(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Upload Subtitles", 
+            "", 
+            "Subtitle Files (*.srt *.vtt *.sub);;All Files (*)"
+        )
+        if file_path:
+            file_path = os.path.normpath(file_path)
+            logging.info(f"VLC Player: Loading local subtitle file: {file_path}")
+            success = self.media_player.video_set_subtitle_file(file_path)
+            if success:
+                logging.info("VLC Player: Local subtitles loaded successfully.")
+                QTimer.singleShot(500, self.update_cc_button_state)
+            else:
+                logging.warning("VLC Player: video_set_subtitle_file returned False, trying add_slave...")
+                try:
+                    file_url = QUrl.fromLocalFile(file_path).toString()
+                    # In python-vlc, MediaSlaveType.subtitle is 0
+                    slave_success = self.media_player.add_slave(0, file_url, True)
+                    logging.info(f"VLC Player: add_slave result: {slave_success}")
+                    QTimer.singleShot(500, self.update_cc_button_state)
+                except Exception as e:
+                    logging.error(f"VLC Player: Failed to add subtitle slave: {e}")
 
         if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
             self.hide_timer.start()
