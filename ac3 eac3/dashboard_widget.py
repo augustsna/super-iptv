@@ -286,17 +286,26 @@ class DashboardWidget(QWidget):
         # App Logo
         import os
         brand_widget = QWidget(self.sidebar)
+        brand_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        brand_widget.setToolTip("Go to Home")
         brand_layout = QHBoxLayout(brand_widget)
         brand_layout.setContentsMargins(20, 15, 15, 15)
         brand_layout.setSpacing(10)
         
         logo_icon = QLabel(brand_widget)
+        logo_icon.setCursor(Qt.CursorShape.PointingHandCursor)
+        logo_icon.setToolTip("Go to Home")
         icon_path = os.path.join(os.path.dirname(__file__), "favicon.png")
         logo_icon.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         logo = QLabel("Super Stream", brand_widget)
         logo.setObjectName("logoText")
         logo.setStyleSheet("padding: 0px;")
+        logo.setCursor(Qt.CursorShape.PointingHandCursor)
+        logo.setToolTip("Go to Home")
+        brand_widget.mousePressEvent = self.go_home
+        logo_icon.mousePressEvent = self.go_home
+        logo.mousePressEvent = self.go_home
         
         brand_layout.addWidget(logo_icon)
         brand_layout.addWidget(logo)
@@ -309,7 +318,7 @@ class DashboardWidget(QWidget):
         nav_items = [
             ("Live TV", self.show_live_tv, "tv"),
             ("Movies", self.show_movies, "film"),
-            ("Series", self.show_series, "clapperboard"),
+            ("TV Series", self.show_series, "clapperboard"),
         ]
         
         import os
@@ -927,7 +936,7 @@ class DashboardWidget(QWidget):
         self.series_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.series_cat_toggle_btn.clicked.connect(self.toggle_series_categories)
         
-        self.series_list_toggle_btn = QPushButton("  Series", self)
+        self.series_list_toggle_btn = QPushButton("  TV Series", self)
         self.series_list_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "list.svg")))
         self.series_list_toggle_btn.setCheckable(True)
         self.series_list_toggle_btn.setChecked(True)
@@ -976,7 +985,7 @@ class DashboardWidget(QWidget):
         series_text_layout.setSpacing(4)
         series_text_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.series_title_label = QLabel("Select a Series", self)
+        self.series_title_label = QLabel("Select a TV Series", self)
         self.series_title_label.setProperty("class", "pane-title")
         self.series_title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         
@@ -1002,13 +1011,13 @@ class DashboardWidget(QWidget):
         self.season_combo.hide()
         
         # Episodes List
-        self.episodes_list_label = QLabel("Episodes:", self)
+        self.episodes_list_label = QLabel("TV Episodes:", self)
         self.episodes_list_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
         self.episodes_list_label.hide()
         self.episodes_list = QListWidget(self)
         self.episodes_list.setMinimumHeight(150)
         self.episodes_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.episodes_list.itemDoubleClicked.connect(self.play_selected_episode)
+        self.episodes_list.itemClicked.connect(self.play_selected_episode)
         self.episodes_list.hide()
 
         self.series_detail_layout.addWidget(self.series_player_container, stretch=3)
@@ -1317,6 +1326,11 @@ class DashboardWidget(QWidget):
     def show_settings(self):
         self.switch_tab(3)
 
+    def go_home(self, event=None):
+        self.player_widget.stop()
+        self.dock_player_to_live()
+        self.show_live_tv()
+
     def logout(self):
         self.player_widget.stop()
         self.logout_requested.emit()
@@ -1361,7 +1375,7 @@ class DashboardWidget(QWidget):
             elif mode == "vod":
                 all_text = "All Movies"
             elif mode == "series":
-                all_text = "All Series"
+                all_text = "All TV Series"
             else:
                 all_text = "All Channels"
 
@@ -1723,8 +1737,11 @@ class DashboardWidget(QWidget):
             return
             
         series_id = series_data["series_id"]
-        self.series_title_label.setText(series_data.get("name", "Unknown Series"))
+        self.series_title_label.setText(series_data.get("name", "Unknown TV Series"))
+        self.series_title_label.show()
         self.series_desc_label.setText(series_data.get("plot", "No description available."))
+        self.series_desc_label.show()
+        self.series_logo_label.show()
         self.load_logo_image(series_data.get("cover", ""), self.series_logo_label, "🍿")
         
         # Load seasons and episodes in background
@@ -1752,28 +1769,44 @@ class DashboardWidget(QWidget):
             seasons = info_data.get("seasons", [])
             episodes = info_data.get("episodes", {})
             
-            if not seasons or not episodes:
-                self.episodes_list.addItem("No episodes available for this series.")
+            if not episodes:
+                self.episodes_list.addItem("No episodes available for this TV series.")
                 return
-                
-            # Store full episodes dictionary on the combo box
-            self.season_combo.setProperty("episodes", episodes)
-            
-            # Populate Season combo box
-            self.season_combo.currentIndexChanged.disconnect(self.on_season_changed)
-            for season in seasons:
-                name = season.get("name", f"Season {season.get('season_number')}")
-                num = season.get("season_number")
-                self.season_combo.addItem(name, num)
-            self.season_combo.currentIndexChanged.connect(self.on_season_changed)
-            
-            # Show combo and trigger first load
-            self.season_combo_label.show()
-            self.season_combo.show()
-            self.on_season_changed(0)
+
+            self.populate_series_episode_browser(seasons, episodes)
 
         self.series_info_worker.finished.connect(on_finished)
         self.series_info_worker.start()
+
+    def populate_series_episode_browser(self, seasons, episodes):
+        season_names = {}
+        for season in seasons or []:
+            season_num = season.get("season_number")
+            if season_num is not None:
+                season_names[str(season_num)] = season.get("name") or f"Season {season_num}"
+
+        def season_sort_key(value):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return 9999
+
+        for season_num in sorted(episodes.keys(), key=season_sort_key):
+            season_title = season_names.get(str(season_num), f"Season {season_num}")
+            header = QListWidgetItem(season_title)
+            header.setData(Qt.ItemDataRole.UserRole, None)
+            header.setFlags(header.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            header.setForeground(QColor("#00f0ff"))
+            header.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            self.episodes_list.addItem(header)
+
+            for ep in episodes.get(season_num, []):
+                episode_num = ep.get("episode_num", "")
+                title = ep.get("title", "Unknown Episode")
+                item = QListWidgetItem(f"  E{episode_num}  {title}")
+                item.setData(Qt.ItemDataRole.UserRole, ep)
+                item.setToolTip(title)
+                self.episodes_list.addItem(item)
 
     def on_season_changed(self, index):
         if index < 0:
@@ -1808,6 +1841,9 @@ class DashboardWidget(QWidget):
         ep_id = ep_data["id"]
         ep_name = ep_data.get("title", "Episode")
         container_ext = ep_data.get("container_extension", "mp4")
+        self.series_logo_label.hide()
+        self.series_title_label.hide()
+        self.series_desc_label.hide()
         
         # Build stream URL
         stream_url = self.client.get_series_stream_url(ep_id, container_ext)

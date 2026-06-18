@@ -61,7 +61,19 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
   const [dismissAudioWarning, setDismissAudioWarning] = useState(false);
   const [codecUnsupported, setCodecUnsupported] = useState(false);
 
+  const isDirectSeriesSource = (source = channel) => {
+    const url = source?.url || '';
+    const isHls = url.includes('.m3u8') || source?.type === 'hls';
+    const isTs = url.includes('.ts') || url.includes('output=ts') || url.endsWith('.ts');
+    return source?.type === 'series' && !isHls && !isTs;
+  };
+
   useEffect(() => {
+    if (isDirectSeriesSource()) {
+      setCodecUnsupported(true);
+      return;
+    }
+
     if (badges.audioCodec) {
       const codec = badges.audioCodec.toLowerCase();
       if (codec === 'ac3' || codec === 'eac3') {
@@ -76,7 +88,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     } else {
       setCodecUnsupported(false);
     }
-  }, [badges.audioCodec]);
+  }, [badges.audioCodec, channel]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -952,10 +964,10 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                     <span>⚠️ No Sound?</span>
                   </div>
                   <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.4', textAlign: 'left' }}>
-                    AC3/EAC3 audio is not supported on PC browsers.
+                    TV Series files often use AC3/EAC3 audio, which PC browsers cannot decode.
                   </div>
                   <div style={{ fontSize: '11px', color: '#03ffeaff', lineHeight: '1.4', textAlign: 'left' }}>
-                    Try other channels, Safari browser, or our Windows app.
+                    Try another episode, Safari browser, or the Windows app.
                   </div>
                 </div>
                 <button

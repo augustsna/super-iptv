@@ -223,7 +223,7 @@ export function formatXtreamSeries(series) {
     id: `xtream-series-${series.series_id}`,
     name: series.name,
     logo: series.cover,
-    category: series.category_name || 'Series',
+    category: series.category_name || 'TV Series',
     categoryId: series.category_id,
     seriesId: series.series_id,
     rating: series.rating,

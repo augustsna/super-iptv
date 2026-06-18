@@ -43,7 +43,7 @@ export default function App() {
 
   const [series, setSeries] = useState([]);
   const [seriesCategories, setSeriesCategories] = useState([]);
-  const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All');
+  const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All TV Series');
   const [selectedSeriesItem, setSelectedSeriesItem] = useState(null); // Active series for detailed episodes
   const [seriesEpisodes, setSeriesEpisodes] = useState([]); // Season-grouped episodes for active series
 
@@ -349,8 +349,8 @@ export default function App() {
 
       // Show series categories immediately, then continue loading series.
       const earlySeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setSeriesCategories(['All Series', ...new Set(earlySeriesCats)]);
-      setSelectedSeriesCategory('All Series');
+      setSeriesCategories(['All TV Series', ...new Set(earlySeriesCats)]);
+      setSelectedSeriesCategory('All TV Series');
 
       // Fetch streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_series`;
@@ -373,9 +373,9 @@ export default function App() {
         : [];
 
       const serverSeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setSeriesCategories(['All Series', ...new Set(serverSeriesCats)]);
+      setSeriesCategories(['All TV Series', ...new Set(serverSeriesCats)]);
       setSeries(formattedSeries);
-      setSelectedSeriesCategory('All Series');
+      setSelectedSeriesCategory('All TV Series');
     } catch (err) {
       console.error(err);
       setErrorMsg(`Failed to fetch series: ${err.message}`);
@@ -419,7 +419,8 @@ export default function App() {
       logo: selectedSeriesItem.logo,
       category: selectedSeriesItem.category,
       url: streamUrl,
-      type: 'video'
+      type: 'series',
+      containerExtension: ext
     });
   };
 
@@ -477,7 +478,7 @@ export default function App() {
 
   const getFilteredSeries = () => {
     let list = series;
-    if (selectedSeriesCategory !== 'All Series') {
+    if (selectedSeriesCategory !== 'All TV Series') {
       list = list.filter(s => s.category === selectedSeriesCategory);
     }
     if (searchQuery) {
@@ -823,11 +824,11 @@ export default function App() {
                         )}
                       </div>
                     ) : activeTab === 'series' ? (
-                      /* Series Browser and Episode Selector */
+                      /* TV Series Browser and Episode Selector */
                       selectedSeriesItem ? (
                         <div className="series-episodes-view">
                           <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSeriesItem(null)} style={{ marginBottom: '16px', padding: '6px 12px', fontSize: '11px' }}>
-                            ← Back to Series List
+                            ← Back to TV Series List
                           </button>
 
                           <div className="series-details-header">
@@ -889,7 +890,7 @@ export default function App() {
                               </div>
                               <div className="vod-title" title={sr.name}>{sr.name}</div>
                               <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginTop: '4px' }}>
-                                {sr.releaseDate || 'Series'}
+                                {sr.releaseDate || 'TV Series'}
                               </div>
                             </div>
                           ))}
@@ -949,7 +950,7 @@ export default function App() {
                             </div>
                           )}
                           {getFilteredSeries().length === 0 && (
-                            <div className="list-empty-state">No series found</div>
+                            <div className="list-empty-state">No TV series found</div>
                           )}
                         </div>
                       )
@@ -999,7 +1000,7 @@ export default function App() {
               }}
             >
               <Clapperboard size={20} />
-              <span>Series</span>
+              <span>TV Series</span>
             </button>
           </>
         )}
@@ -1308,7 +1309,7 @@ export default function App() {
           color: #f59e0b;
         }
 
-        /* VOD & Series Grid */
+        /* VOD & TV Series Grid */
         .vod-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -1373,7 +1374,7 @@ export default function App() {
           text-overflow: ellipsis;
         }
 
-        /* Series view details */
+        /* TV Series view details */
         .series-details-header {
           display: flex;
           gap: 16px;
