@@ -11,7 +11,7 @@ from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkRepl
 
 from player_widget import PlayerWidget
 from workers import (
-    FetchCategoriesWorker, FetchStreamsWorker, FetchAllStreamsWorker, FetchSeriesInfoWorker
+    FetchCategoriesWorker, FetchStreamsWorker, FetchSeriesInfoWorker
 )
 import logging
 
@@ -39,13 +39,11 @@ class DashboardWidget(QWidget):
         # Cache for loaded categories and streams to avoid unnecessary network queries
         self.categories_cache = {"live": [], "vod": [], "series": []}
         self.streams_cache = {"live": {}, "vod": {}, "series": {}}
-        self.lazy_cat_index = {"live": 0, "vod": 0, "series": 0}
         self.current_streams = []
         
         # Track active workers to avoid race conditions
         self.cat_worker = None
         self.stream_worker = None
-        self.all_stream_worker = None
         self.series_info_worker = None
         
         # Track where the player widget is currently docked
@@ -1327,9 +1325,6 @@ class DashboardWidget(QWidget):
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
-        if self.all_stream_worker and self.all_stream_worker.isRunning():
-            self.all_stream_worker.terminate()
-            self.all_stream_worker.wait()
         if self.series_info_worker and self.series_info_worker.isRunning():
             self.series_info_worker.terminate()
             self.series_info_worker.wait()
@@ -1410,34 +1405,8 @@ class DashboardWidget(QWidget):
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
-        if self.all_stream_worker and self.all_stream_worker.isRunning():
-            self.all_stream_worker.terminate()
-            self.all_stream_worker.wait()
 
-        if category_id is None and mode == "live" and self.categories_cache.get(mode):
-            self.all_stream_worker = FetchAllStreamsWorker(self.client, mode, self.categories_cache.get(mode, []))
-
-            def on_finished(streams):
-                try:
-                    list_widget.setEnabled(True)
-                    list_widget.clear()
-                except RuntimeError:
-                    return # Widget deleted
-                    
-                self.streams_data[mode] = streams
-                self.streams_loaded_count[mode] = 0
-                
-                self.streams_cache[mode][None] = streams
-                
-                if not streams:
-                    list_widget.addItem("No streams available.")
-                    return
-
-                self.show_more_streams(mode, list_widget)
-
-            self.all_stream_worker.finished.connect(on_finished)
-            self.all_stream_worker.start()
-        elif category_id is None:
+        if category_id is None:
             self.stream_worker = FetchStreamsWorker(self.client, mode, None)
 
             def on_finished(streams):
@@ -1529,6 +1498,9 @@ class DashboardWidget(QWidget):
         
         def on_finished(streams):
             try:
+                cat_name = cat.get("category_name", "")
+                for s in streams:
+                    s["category_name"] = cat_name
                 # Cache the loaded streams
                 self.streams_cache[mode][cat_id] = streams
                 self.streams_data[mode].extend(streams)
@@ -1608,9 +1580,8 @@ class DashboardWidget(QWidget):
             self.stream_worker.terminate()
             self.stream_worker.wait()
         
-        # Fetch every live category and merge the result. Some Xtream portals return
-        # an incomplete list from category_id=None, which also makes Sport incomplete.
-        self.all_stream_worker = FetchAllStreamsWorker(self.client, "live", self.categories_cache.get("live", []))
+        # Match the webapp: fetch all live streams directly, then filter locally.
+        self.stream_worker = FetchStreamsWorker(self.client, "live", None)
         
         def on_finished(streams):
             try:
@@ -1619,6 +1590,10 @@ class DashboardWidget(QWidget):
             except RuntimeError:
                 return
                 
+            cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get("live", []) if "category_id" in cat and "category_name" in cat}
+            for s in streams:
+                s["category_name"] = cat_map.get(s.get("category_id"), "")
+
             # Cache the loaded streams
             self.streams_cache["live"][None] = streams
             
@@ -1639,8 +1614,8 @@ class DashboardWidget(QWidget):
             self.streams_loaded_count["live"] = 0
             self.show_more_streams("live", self.live_channel_list)
         
-        self.all_stream_worker.finished.connect(on_finished)
-        self.all_stream_worker.start()
+        self.stream_worker.finished.connect(on_finished)
+        self.stream_worker.start()
 
     def filter_live_channels(self, query):
         self.filter_list_items("live", query, self.live_channel_list)
@@ -2193,7 +2168,6 @@ class DashboardWidget(QWidget):
             more_item.setForeground(QColor("#00f0ff"))
             more_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             list_widget.addItem(more_item)
-            
         QTimer.singleShot(50, lambda: self.load_visible_icons(list_widget))
 
     def filter_list_items(self, mode, query, list_widget):
