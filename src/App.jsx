@@ -234,6 +234,12 @@ export default function App() {
       if (!catResponse.ok) throw new Error('Live categories load failed');
       const catsJson = await catResponse.json();
 
+      // Show categories immediately, then continue loading channels.
+      const earlyServerCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setCategories([...new Set(['All Channels', '🏆 Sports', ...earlyServerCats])]);
+      setSelectedCategory('All Channels');
+      setActiveTab('live');
+
       // Fetch Live Streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams`;
       const streamsFetchUrl = proxy ? `${pUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
@@ -292,6 +298,11 @@ export default function App() {
       const catResponse = await fetch(catFetchUrl);
       const catsJson = await catResponse.json();
 
+      // Show movie categories immediately, then continue loading movies.
+      const earlyMovieCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setMovieCategories(['All Movies', ...new Set(earlyMovieCats)]);
+      setSelectedMovieCategory('All Movies');
+
       // Fetch streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`;
       const streamsFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
@@ -335,6 +346,11 @@ export default function App() {
       const catFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(catUrl)}` : catUrl;
       const catResponse = await fetch(catFetchUrl);
       const catsJson = await catResponse.json();
+
+      // Show series categories immediately, then continue loading series.
+      const earlySeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
+      setSeriesCategories(['All Series', ...new Set(earlySeriesCats)]);
+      setSelectedSeriesCategory('All Series');
 
       // Fetch streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_series`;

@@ -944,8 +944,8 @@ class DashboardWidget(QWidget):
 
         # Series Player Container
         self.series_player_container = QFrame(self)
-        self.series_player_container.setMinimumHeight(240)
-        self.series_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.series_player_container.setMinimumHeight(170)
+        self.series_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.series_player_container.setStyleSheet("background-color: #000000; border-radius: 6px;")
         self.series_player_layout = QVBoxLayout(self.series_player_container)
         self.series_player_layout.setContentsMargins(0, 0, 0, 0)
@@ -994,29 +994,34 @@ class DashboardWidget(QWidget):
         
         # Season Selector Combobox
         self.season_combo_label = QLabel("Select Season:", self)
+        self.season_combo_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
         self.season_combo_label.hide()
         self.season_combo = QComboBox(self)
+        self.season_combo.setFixedWidth(220)
         self.season_combo.currentIndexChanged.connect(self.on_season_changed)
         self.season_combo.hide()
         
         # Episodes List
         self.episodes_list_label = QLabel("Episodes:", self)
+        self.episodes_list_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
         self.episodes_list_label.hide()
         self.episodes_list = QListWidget(self)
+        self.episodes_list.setMinimumHeight(150)
+        self.episodes_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.episodes_list.itemDoubleClicked.connect(self.play_selected_episode)
         self.episodes_list.hide()
 
-        self.series_detail_layout.addWidget(self.series_player_container, stretch=9)
+        self.series_detail_layout.addWidget(self.series_player_container, stretch=3)
         self.series_detail_layout.addWidget(self.series_meta_container)
-        self.series_detail_layout.addSpacing(10)
+        self.series_detail_layout.addSpacing(4)
         self.series_detail_layout.addWidget(self.season_combo_label)
         self.series_detail_layout.addWidget(self.season_combo)
-        self.series_detail_layout.addSpacing(10)
+        self.series_detail_layout.addSpacing(2)
         self.series_detail_layout.addWidget(self.episodes_list_label)
-        self.series_detail_layout.addWidget(self.episodes_list)
+        self.series_detail_layout.addWidget(self.episodes_list, stretch=4)
         self.series_spacer = QWidget(self)
         self.series_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.series_detail_layout.addWidget(self.series_spacer, stretch=1)
+        self.series_detail_layout.addWidget(self.series_spacer, stretch=0)
 
         # Center: Categories
         self.series_cat_widget = QWidget(self)

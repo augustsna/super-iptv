@@ -134,13 +134,13 @@ class LoginWidget(QWidget):
         # Header
         logo_badge = QLabel(self)
         logo_badge.setObjectName("logoBadge")
-        logo_badge.setFixedSize(68, 68)
+        logo_badge.setFixedSize(48, 48)
         logo_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_path = os.path.join(os.path.dirname(__file__), "favicon.png")
         logo_badge.setPixmap(
             QPixmap(logo_path).scaled(
-                44,
-                44,
+                40,
+                40,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
@@ -148,14 +148,22 @@ class LoginWidget(QWidget):
 
         title = QLabel("SUPER STREAM", self)
         title.setObjectName("title")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         subtitle = QLabel("August IPTV Player", self)
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        card_layout.addWidget(logo_badge, alignment=Qt.AlignmentFlag.AlignCenter)
-        card_layout.addWidget(title)
+        brand_row = QWidget(self)
+        brand_layout = QHBoxLayout(brand_row)
+        brand_layout.setContentsMargins(0, 0, 0, 0)
+        brand_layout.setSpacing(10)
+        brand_layout.addStretch()
+        brand_layout.addWidget(logo_badge)
+        brand_layout.addWidget(title)
+        brand_layout.addStretch()
+
+        card_layout.addWidget(brand_row)
         card_layout.addWidget(subtitle)
 
         # Input Fields
