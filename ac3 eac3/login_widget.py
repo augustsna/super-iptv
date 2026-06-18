@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QStackedWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSettings, QTimer
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QPixmap
 
 import mock_server
 from workers import LoginWorker, SyncWorker, AdminAuthWorker, AdminSaveWorker
@@ -39,15 +39,20 @@ class LoginWidget(QWidget):
                 border-radius: 16px;
             }
             QLabel#title {
-                color: #ffffff;
+                color: #00f0ff;
                 font-size: 24px;
                 font-weight: bold;
-                margin-bottom: 5px;
+                margin-bottom: 2px;
             }
             QLabel#subtitle {
                 color: #9ca3af;
-                font-size: 13px;
-                margin-bottom: 20px;
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            QLabel#logoBadge {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
             }
             QLabel#fieldLabel {
                 color: #d1d5db;
@@ -127,14 +132,29 @@ class LoginWidget(QWidget):
         card_layout.setSpacing(15)
 
         # Header
+        logo_badge = QLabel(self)
+        logo_badge.setObjectName("logoBadge")
+        logo_badge.setFixedSize(68, 68)
+        logo_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_path = os.path.join(os.path.dirname(__file__), "favicon.png")
+        logo_badge.setPixmap(
+            QPixmap(logo_path).scaled(
+                44,
+                44,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+        )
+
         title = QLabel("SUPER STREAM", self)
         title.setObjectName("title")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        subtitle = QLabel("Login with your Xtream Codes API server", self)
+        subtitle = QLabel("August IPTV Player", self)
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        card_layout.addWidget(logo_badge, alignment=Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(title)
         card_layout.addWidget(subtitle)
 

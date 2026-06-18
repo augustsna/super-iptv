@@ -178,14 +178,9 @@ export default function PlaylistSelector({ onPlaylistLoaded, onError }) {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
             display: 'inline-flex',
-            padding: '16px',
-            borderRadius: '50%',
-            background: 'var(--primary-glow)',
-            color: 'var(--primary)',
             marginBottom: '16px',
-            border: '1px solid var(--border-active)'
           }}>
-            <Tv size={36} />
+            <img src="/favicon.svg" alt="Super Stream Logo" style={{ width: 40, height: 40, display: 'block' }} />
           </div>
           <h1 className="text-digital glow-text-primary" style={{ fontSize: '28px', color: 'var(--primary)', marginBottom: '8px' }}>SUPER STREAM</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>August IPTV Player</p>
