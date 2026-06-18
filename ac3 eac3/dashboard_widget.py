@@ -11,7 +11,7 @@ from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkRepl
 
 from player_widget import PlayerWidget
 from workers import (
-    FetchCategoriesWorker, FetchStreamsWorker, FetchSeriesInfoWorker
+    FetchCategoriesWorker, FetchStreamsWorker, FetchAllStreamsWorker, FetchSeriesInfoWorker
 )
 import logging
 
@@ -39,11 +39,13 @@ class DashboardWidget(QWidget):
         # Cache for loaded categories and streams to avoid unnecessary network queries
         self.categories_cache = {"live": [], "vod": [], "series": []}
         self.streams_cache = {"live": {}, "vod": {}, "series": {}}
+        self.lazy_cat_index = {"live": 0, "vod": 0, "series": 0}
         self.current_streams = []
         
         # Track active workers to avoid race conditions
         self.cat_worker = None
         self.stream_worker = None
+        self.all_stream_worker = None
         self.series_info_worker = None
         
         # Track where the player widget is currently docked
@@ -56,6 +58,7 @@ class DashboardWidget(QWidget):
         self.show_live_tv()
 
     def on_batch_limit_changed(self, text):
+        self.settings.setValue("batch_limit", text)
         for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
             if combo is not None and combo.currentText() != text:
                 combo.blockSignals(True)
@@ -64,13 +67,18 @@ class DashboardWidget(QWidget):
         self.reload_active_tab_streams()
 
     def reload_active_tab_streams(self):
+        if not hasattr(self, 'content_stack') or self.content_stack is None:
+            return
         active_tab = self.content_stack.currentIndex()
         if active_tab == 0:
-            self.on_live_category_changed(self.live_cat_list.currentRow())
+            if hasattr(self, 'live_cat_list') and self.live_cat_list is not None:
+                self.on_live_category_changed(self.live_cat_list.currentRow())
         elif active_tab == 1:
-            self.on_movie_category_changed(self.movie_cat_list.currentRow())
+            if hasattr(self, 'movie_cat_list') and self.movie_cat_list is not None:
+                self.on_movie_category_changed(self.movie_cat_list.currentRow())
         elif active_tab == 2:
-            self.on_series_category_changed(self.series_cat_list.currentRow())
+            if hasattr(self, 'series_cat_list') and self.series_cat_list is not None:
+                self.on_series_category_changed(self.series_cat_list.currentRow())
 
     def get_batch_size(self):
         text = None
@@ -641,7 +649,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.live_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = "50"
+        saved_limit = str(self.settings.value("batch_limit", "50"))
         bottom_layout = QHBoxLayout()
         bottom_layout.setContentsMargins(5, 0, 5, 0)
         load_label = QLabel("Load amount:", self)
@@ -859,7 +867,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.movie_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = "50"
+        saved_limit = str(self.settings.value("batch_limit", "50"))
         movie_bottom_layout = QHBoxLayout()
         movie_bottom_layout.setContentsMargins(5, 0, 5, 0)
         movie_load_label = QLabel("Load amount:", self)
@@ -1060,7 +1068,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.series_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = "50"
+        saved_limit = str(self.settings.value("batch_limit", "50"))
         series_bottom_layout = QHBoxLayout()
         series_bottom_layout.setContentsMargins(5, 0, 5, 0)
         series_load_label = QLabel("Load amount:", self)
@@ -1213,7 +1221,7 @@ class DashboardWidget(QWidget):
             }
         """)
         
-        saved_limit = "50"
+        saved_limit = str(self.settings.value("batch_limit", "50"))
         self.batch_combo.setCurrentText(saved_limit)
         self.batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
         
@@ -1319,6 +1327,9 @@ class DashboardWidget(QWidget):
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
+        if self.all_stream_worker and self.all_stream_worker.isRunning():
+            self.all_stream_worker.terminate()
+            self.all_stream_worker.wait()
         if self.series_info_worker and self.series_info_worker.isRunning():
             self.series_info_worker.terminate()
             self.series_info_worker.wait()
@@ -1345,14 +1356,23 @@ class DashboardWidget(QWidget):
                 return
                 
             # Add an 'All Channels / Streams' top item
-            all_item = QListWidgetItem("🌟 [All Categories]")
+            if mode == "live":
+                all_text = "All Channels"
+            elif mode == "vod":
+                all_text = "All Movies"
+            elif mode == "series":
+                all_text = "All Series"
+            else:
+                all_text = "All Channels"
+
+            all_item = QListWidgetItem(all_text)
             all_item.setData(Qt.ItemDataRole.UserRole, None)
             list_widget.addItem(all_item)
             
             # For Live TV: add virtual Sports category chip (webapp parity)
             if mode == "live":
-                sports_item = QListWidgetItem("🏆 Sports")
-                sports_item.setData(Qt.ItemDataRole.UserRole, "__sports__")
+                sports_item = QListWidgetItem("🏆 Sport")
+                sports_item.setData(Qt.ItemDataRole.UserRole, "__sport__")
                 sports_item.setForeground(QColor("#00f0ff"))
                 sports_item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
                 list_widget.addItem(sports_item)
@@ -1390,30 +1410,159 @@ class DashboardWidget(QWidget):
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
+        if self.all_stream_worker and self.all_stream_worker.isRunning():
+            self.all_stream_worker.terminate()
+            self.all_stream_worker.wait()
 
-        self.stream_worker = FetchStreamsWorker(self.client, mode, category_id)
+        if category_id is None and mode == "live" and self.categories_cache.get(mode):
+            self.all_stream_worker = FetchAllStreamsWorker(self.client, mode, self.categories_cache.get(mode, []))
 
+            def on_finished(streams):
+                try:
+                    list_widget.setEnabled(True)
+                    list_widget.clear()
+                except RuntimeError:
+                    return # Widget deleted
+                    
+                self.streams_data[mode] = streams
+                self.streams_loaded_count[mode] = 0
+                
+                self.streams_cache[mode][None] = streams
+                
+                if not streams:
+                    list_widget.addItem("No streams available.")
+                    return
+
+                self.show_more_streams(mode, list_widget)
+
+            self.all_stream_worker.finished.connect(on_finished)
+            self.all_stream_worker.start()
+        elif category_id is None:
+            self.stream_worker = FetchStreamsWorker(self.client, mode, None)
+
+            def on_finished(streams):
+                try:
+                    list_widget.setEnabled(True)
+                    list_widget.clear()
+                except RuntimeError:
+                    return # Widget deleted
+
+                # Populate category_name for each stream
+                cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get(mode, []) if "category_id" in cat and "category_name" in cat}
+                for s in streams:
+                    s["category_name"] = cat_map.get(s.get("category_id"), "")
+
+                self.streams_data[mode] = streams
+                self.streams_loaded_count[mode] = 0
+
+                # Cache the loaded streams under None
+                self.streams_cache[mode][None] = streams
+
+                if not streams:
+                    list_widget.addItem("No streams available.")
+                    return
+
+                self.show_more_streams(mode, list_widget)
+
+            self.stream_worker.finished.connect(on_finished)
+            self.stream_worker.start()
+        else:
+            self.stream_worker = FetchStreamsWorker(self.client, mode, category_id)
+
+            def on_finished(streams):
+                try:
+                    list_widget.setEnabled(True)
+                    list_widget.clear()
+                except RuntimeError:
+                    return # Widget deleted, user likely navigated away
+                    
+                cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get(mode, []) if "category_id" in cat and "category_name" in cat}
+                for s in streams:
+                    s["category_name"] = cat_map.get(s.get("category_id"), "")
+                    
+                self.streams_data[mode] = streams
+                self.streams_loaded_count[mode] = 0
+                
+                # Cache the loaded streams
+                self.streams_cache[mode][category_id] = streams
+                
+                if not streams:
+                    list_widget.addItem("No streams available.")
+                    return
+
+                self.show_more_streams(mode, list_widget)
+
+            self.stream_worker.finished.connect(on_finished)
+            self.stream_worker.start()
+
+    def load_next_lazy_category(self, mode, list_widget):
+        categories = self.categories_cache.get(mode, [])
+        idx = self.lazy_cat_index[mode]
+        
+        # If we have run out of categories, finish loading
+        if idx >= len(categories):
+            self.on_lazy_loading_finished(mode, list_widget)
+            return
+            
+        cat = categories[idx]
+        cat_id = cat.get("category_id")
+        
+        # Target size is the currently loaded count in UI plus the batch page size
+        batch_size = self.get_batch_size()
+        target_size = self.streams_loaded_count[mode] + batch_size
+        
+        # Check if this category's streams are already cached
+        if cat_id in self.streams_cache[mode]:
+            streams = self.streams_cache[mode][cat_id]
+            self.streams_data[mode].extend(streams)
+            self.lazy_cat_index[mode] += 1
+            
+            # Check if we have loaded enough channels
+            if len(self.streams_data[mode]) >= target_size:
+                self.on_lazy_loading_finished(mode, list_widget)
+            else:
+                self.load_next_lazy_category(mode, list_widget)
+            return
+
+        # Fetch from server
+        self.stream_worker = FetchStreamsWorker(self.client, mode, cat_id)
+        
         def on_finished(streams):
             try:
-                list_widget.setEnabled(True)
-                list_widget.clear()
-            except RuntimeError:
-                return # Widget deleted, user likely navigated away
+                # Cache the loaded streams
+                self.streams_cache[mode][cat_id] = streams
+                self.streams_data[mode].extend(streams)
+                self.lazy_cat_index[mode] += 1
                 
-            self.streams_data[mode] = streams
-            self.streams_loaded_count[mode] = 0
-            
-            # Cache the loaded streams
-            self.streams_cache[mode][category_id] = streams
-            
-            if not streams:
-                list_widget.addItem("No streams available.")
-                return
-
-            self.show_more_streams(mode, list_widget)
-
+                if len(self.streams_data[mode]) >= target_size or self.lazy_cat_index[mode] >= len(categories):
+                    self.on_lazy_loading_finished(mode, list_widget)
+                else:
+                    self.load_next_lazy_category(mode, list_widget)
+            except RuntimeError:
+                return # Widget deleted
+                
         self.stream_worker.finished.connect(on_finished)
         self.stream_worker.start()
+
+    def on_lazy_loading_finished(self, mode, list_widget):
+        try:
+            list_widget.setEnabled(True)
+            if list_widget.count() > 0:
+                last_item = list_widget.item(list_widget.count() - 1)
+                if last_item.data(Qt.ItemDataRole.UserRole + 2) == "load_more" or last_item.text().startswith("⏳") or last_item.text().startswith("Loading"):
+                    list_widget.takeItem(list_widget.count() - 1)
+        except RuntimeError:
+            return
+            
+        streams = self.streams_data[mode]
+        # Cache the current accumulated list under None (All Categories)
+        self.streams_cache[mode][None] = streams
+        
+        if not streams and list_widget.count() == 0:
+            list_widget.addItem("No streams available.")
+            return
+            
+        self.show_more_streams(mode, list_widget)
 
     # --- Live TV Event Handlers ---
 
@@ -1423,12 +1572,12 @@ class DashboardWidget(QWidget):
         item = self.live_cat_list.currentItem()
         category_id = item.data(Qt.ItemDataRole.UserRole)
         
-        if category_id == "__sports__":
-            self.load_sports_streams(keywords=["sport", "esporte", "desporto", "liga", "futbol", "football", "nfl", "nba", "mlb", "nhl", "ufc", "mma", "racing"])
+        if category_id == "__sport__":
+            self.load_sport_streams(keywords=["sport", "esporte", "desporto", "liga", "futbol", "football", "nfl", "nba", "mlb", "nhl", "ufc", "mma", "racing"])
         else:
             self.load_streams("live", category_id, self.live_channel_list)
     
-    def load_sports_streams(self, keywords):
+    def load_sport_streams(self, keywords):
         """Fetch all live streams, then filter client-side by sport-related keywords."""
         self.live_channel_list.clear()
         
@@ -1444,7 +1593,7 @@ class DashboardWidget(QWidget):
                 )
             ]
             if not matched:
-                self.live_channel_list.addItem("No sports channels found.")
+                self.live_channel_list.addItem("No sport channels found.")
                 return
                 
             self.streams_data["live"] = matched
@@ -1452,20 +1601,24 @@ class DashboardWidget(QWidget):
             self.show_more_streams("live", self.live_channel_list)
             return
 
-        self.live_channel_list.addItem("Loading sports channels...")
+        self.live_channel_list.addItem("Loading sport channels...")
         self.live_channel_list.setEnabled(False)
         
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
         
-        # Fetch all streams (no category_id = all)
-        self.stream_worker = FetchStreamsWorker(self.client, "live", None)
+        # Fetch every live category and merge the result. Some Xtream portals return
+        # an incomplete list from category_id=None, which also makes Sport incomplete.
+        self.all_stream_worker = FetchAllStreamsWorker(self.client, "live", self.categories_cache.get("live", []))
         
         def on_finished(streams):
-            self.live_channel_list.setEnabled(True)
-            self.live_channel_list.clear()
-            
+            try:
+                self.live_channel_list.setEnabled(True)
+                self.live_channel_list.clear()
+            except RuntimeError:
+                return
+                
             # Cache the loaded streams
             self.streams_cache["live"][None] = streams
             
@@ -1479,15 +1632,15 @@ class DashboardWidget(QWidget):
             ]
             
             if not matched:
-                self.live_channel_list.addItem("No sports channels found.")
+                self.live_channel_list.addItem("No sport channels found.")
                 return
             
             self.streams_data["live"] = matched
             self.streams_loaded_count["live"] = 0
             self.show_more_streams("live", self.live_channel_list)
         
-        self.stream_worker.finished.connect(on_finished)
-        self.stream_worker.start()
+        self.all_stream_worker.finished.connect(on_finished)
+        self.all_stream_worker.start()
 
     def filter_live_channels(self, query):
         self.filter_list_items("live", query, self.live_channel_list)
@@ -1692,6 +1845,7 @@ class DashboardWidget(QWidget):
         self.mini_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "live"
         self.player_widget.full_program_btn.setChecked(False)
+        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Live TV Panel")
 
@@ -1702,6 +1856,7 @@ class DashboardWidget(QWidget):
         self.movie_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "movie"
         self.player_widget.full_program_btn.setChecked(False)
+        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Movie Details Panel")
 
@@ -1712,6 +1867,7 @@ class DashboardWidget(QWidget):
         self.series_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "series"
         self.player_widget.full_program_btn.setChecked(False)
+        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Series Details Panel")
 
@@ -1995,10 +2151,19 @@ class DashboardWidget(QWidget):
             if last_item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
                 list_widget.takeItem(list_widget.count() - 1)
 
+        # Get active category ID
+        active_cat_id = None
+        if mode == "live":
+            active_cat_id = self.live_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.live_cat_list.currentItem() else None
+        elif mode == "vod":
+            active_cat_id = self.movie_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.movie_cat_list.currentItem() else None
+        elif mode == "series":
+            active_cat_id = self.series_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.series_cat_list.currentItem() else None
+
         all_streams = self.streams_data.get(mode, [])
         current_count = self.streams_loaded_count.get(mode, 0)
-        
         PAGE_SIZE = self.get_batch_size()
+
         next_count = min(len(all_streams), current_count + PAGE_SIZE)
         
         for i in range(current_count, next_count):
@@ -2019,9 +2184,11 @@ class DashboardWidget(QWidget):
             
         self.streams_loaded_count[mode] = next_count
         
+        # Determine if we should show 'Load More'
         if next_count < len(all_streams):
             remaining = len(all_streams) - next_count
-            more_item = QListWidgetItem(f"➕ Load More ({remaining} remaining)")
+            label_text = f"➕ Load More ({remaining} remaining)"
+            more_item = QListWidgetItem(label_text)
             more_item.setData(Qt.ItemDataRole.UserRole + 2, "load_more")
             more_item.setForeground(QColor("#00f0ff"))
             more_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))

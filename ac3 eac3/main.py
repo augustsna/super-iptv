@@ -35,6 +35,13 @@ class MainWindow(QMainWindow):
     def apply_theme(self):
         # Apply clean dark styling globally
         self.setStyleSheet("""
+            QToolTip {
+                background-color: #1a1a24;
+                color: #ffffff;
+                border: 1px solid #2c2c38;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }
             QMainWindow {
                 background-color: #07090e;
             }

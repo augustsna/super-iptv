@@ -72,6 +72,52 @@ class FetchStreamsWorker(QThread):
         self.finished.emit(streams)
 
 
+class FetchAllStreamsWorker(QThread):
+    # Signals: list of streams merged across categories
+    finished = pyqtSignal(list)
+
+    def __init__(self, client, mode, categories):
+        super().__init__()
+        self.client = client
+        self.mode = mode
+        self.categories = categories or []
+
+    def run(self):
+        merged = []
+        seen = set()
+        try:
+            for cat in self.categories:
+                cat_id = cat.get("category_id")
+                cat_name = cat.get("category_name", "")
+                if not cat_id:
+                    continue
+
+                if self.mode == "live":
+                    streams = self.client.get_live_streams(cat_id)
+                    id_key = "stream_id"
+                elif self.mode == "vod":
+                    streams = self.client.get_vod_streams(cat_id)
+                    id_key = "stream_id"
+                elif self.mode == "series":
+                    streams = self.client.get_series(cat_id)
+                    id_key = "series_id"
+                else:
+                    streams = []
+                    id_key = "stream_id"
+
+                for stream in streams or []:
+                    stream["category_name"] = cat_name
+                    stream_id = stream.get(id_key) or stream.get("stream_id") or stream.get("series_id") or stream.get("name")
+                    dedupe_key = f"{self.mode}:{stream_id}"
+                    if dedupe_key in seen:
+                        continue
+                    seen.add(dedupe_key)
+                    merged.append(stream)
+        except Exception as e:
+            logging.error(f"Worker failed to fetch all {self.mode} streams by category: {e}")
+        self.finished.emit(merged)
+
+
 class FetchSeriesInfoWorker(QThread):
     # Signals: series detailed info dictionary
     finished = pyqtSignal(dict)
@@ -204,5 +250,4 @@ class AdminSaveWorker(QThread):
             self.finished.emit(False, msg)
         except Exception as e:
             self.finished.emit(False, f"Connection error: {str(e)}")
-
 
