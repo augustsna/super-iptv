@@ -186,7 +186,7 @@ function parseXMLTVDate(dateStr) {
 /**
  * Format Xtream API lists into normalized channel objects.
  */
-export function formatXtreamLiveStream(stream, hostUrl, username, password, format = 'ts') {
+export function formatXtreamLiveStream(stream, hostUrl, username, password) {
   return {
     uniqueId: `xtream-live-${stream.stream_id}`,
     id: stream.epg_channel_id || `xtream-${stream.stream_id}`,
@@ -194,7 +194,7 @@ export function formatXtreamLiveStream(stream, hostUrl, username, password, form
     logo: stream.stream_icon,
     category: stream.category_name || 'Uncategorized',
     categoryId: stream.category_id,
-    url: `${hostUrl}/live/${username}/${password}/${stream.stream_id}.${format}`,
+    url: `${hostUrl}/live/${username}/${password}/${stream.stream_id}.ts`,
     streamId: stream.stream_id,
     type: 'live'
   };
@@ -223,7 +223,7 @@ export function formatXtreamSeries(series) {
     id: `xtream-series-${series.series_id}`,
     name: series.name,
     logo: series.cover,
-    category: series.category_name || 'TV Series',
+    category: series.category_name || 'Series',
     categoryId: series.category_id,
     seriesId: series.series_id,
     rating: series.rating,

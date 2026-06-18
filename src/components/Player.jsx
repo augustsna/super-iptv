@@ -1,15 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2, Subtitles, Settings, Square, FolderOpen } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink } from 'lucide-react';
 
-export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) {
+export default function Player({ channel }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const mpegtsRef = useRef(null);
-  const subtitleInputRef = useRef(null);
-  const localSubtitleUrlRef = useRef(null);
-  const localSubtitleTrackRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(() => {
@@ -49,31 +46,10 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     });
   };
 
-  const [tracks, setTracks] = useState([]);
-  const [activeTrackIndex, setActiveTrackIndex] = useState(-1);
-  const [showTrackMenu, setShowTrackMenu] = useState(false);
-  const [localSubtitleName, setLocalSubtitleName] = useState('');
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [audioTracks, setAudioTracks] = useState([]);
-  const [activeAudioTrackIndex, setActiveAudioTrackIndex] = useState(-1);
-  const [playbackRate, setPlaybackRate] = useState(1);
-
   const [dismissAudioWarning, setDismissAudioWarning] = useState(false);
   const [codecUnsupported, setCodecUnsupported] = useState(false);
 
-  const isDirectSeriesSource = (source = channel) => {
-    const url = source?.url || '';
-    const isHls = url.includes('.m3u8') || source?.type === 'hls';
-    const isTs = url.includes('.ts') || url.includes('output=ts') || url.endsWith('.ts');
-    return source?.type === 'series' && !isHls && !isTs;
-  };
-
   useEffect(() => {
-    if (isDirectSeriesSource()) {
-      setCodecUnsupported(true);
-      return;
-    }
-
     if (badges.audioCodec) {
       const codec = badges.audioCodec.toLowerCase();
       if (codec === 'ac3' || codec === 'eac3') {
@@ -88,7 +64,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     } else {
       setCodecUnsupported(false);
     }
-  }, [badges.audioCodec, channel]);
+  }, [badges.audioCodec]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -131,7 +107,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
 
   const destroyPlayer = () => {
     isDestroyingRef.current = true;
-    clearLocalSubtitle();
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -151,13 +126,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     resetBadges();
     setDismissAudioWarning(false);
     setCodecUnsupported(false);
-    setTracks([]);
-    setActiveTrackIndex(-1);
-    setShowTrackMenu(false);
-    setAudioTracks([]);
-    setActiveAudioTrackIndex(-1);
-    setShowSettingsMenu(false);
-    setPlaybackRate(1);
   };
 
   const updateHlsBadges = (level) => {
@@ -277,15 +245,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
             if (hls.levels && hls.levels.length > 0) {
               updateHlsBadges(hls.levels[hls.currentLevel] || hls.levels[0]);
             }
-            syncAudioTracks();
-          });
-
-          hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
-            syncAudioTracks();
-          });
-
-          hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
-            syncAudioTracks();
           });
 
           hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
@@ -432,139 +391,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     };
   }, [showStats, isPlaying]);
 
-  const syncTextTracks = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const textTracks = Array.from(video.textTracks || []);
-    const validTracks = textTracks.filter(
-      track => track.kind === 'subtitles' || track.kind === 'captions'
-    );
-
-    const tracksList = validTracks.map((track, index) => ({
-      id: index,
-      label: track.label || track.language || `c608 #${index + 1}`,
-      language: track.language,
-      kind: track.kind,
-      originalTrack: track,
-      active: track.mode === 'showing'
-    }));
-
-    setTracks(prev => {
-      const isSame = prev.length === tracksList.length &&
-        prev.every((t, i) => t.label === tracksList[i].label && t.active === tracksList[i].active);
-      return isSame ? prev : tracksList;
-    });
-
-    const activeIdx = tracksList.findIndex(t => t.active);
-    setActiveTrackIndex(activeIdx);
-  };
-
-  const clearLocalSubtitle = () => {
-    if (localSubtitleTrackRef.current?.parentNode) {
-      localSubtitleTrackRef.current.parentNode.removeChild(localSubtitleTrackRef.current);
-    }
-    localSubtitleTrackRef.current = null;
-
-    if (localSubtitleUrlRef.current) {
-      URL.revokeObjectURL(localSubtitleUrlRef.current);
-      localSubtitleUrlRef.current = null;
-    }
-
-    setLocalSubtitleName('');
-    syncTextTracks();
-  };
-
-  const convertSrtToVtt = (text) => {
-    const normalized = text.replace(/^\uFEFF/, '').replace(/\r+/g, '');
-    return `WEBVTT\n\n${normalized
-      .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2},\d{3})/gm, '')
-      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`;
-  };
-
-  const handleLocalSubtitleChange = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || !videoRef.current) return;
-
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    if (extension !== 'vtt' && extension !== 'srt') {
-      setErrorMsg('Subtitle file must be .vtt or .srt');
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const vttText = extension === 'srt' ? convertSrtToVtt(text) : text;
-      const blob = new Blob([vttText], { type: 'text/vtt' });
-      const url = URL.createObjectURL(blob);
-      const trackEl = document.createElement('track');
-
-      clearLocalSubtitle();
-
-      trackEl.kind = 'subtitles';
-      trackEl.label = `Local: ${file.name}`;
-      trackEl.srclang = 'local';
-      trackEl.src = url;
-      trackEl.default = true;
-      trackEl.addEventListener('load', () => {
-        Array.from(videoRef.current?.textTracks || []).forEach(track => {
-          track.mode = track === trackEl.track ? 'showing' : 'disabled';
-        });
-        syncTextTracks();
-      }, { once: true });
-
-      localSubtitleUrlRef.current = url;
-      localSubtitleTrackRef.current = trackEl;
-      videoRef.current.appendChild(trackEl);
-      setLocalSubtitleName(file.name);
-      setErrorMsg('');
-
-      setTimeout(() => {
-        if (trackEl.track) {
-          Array.from(videoRef.current?.textTracks || []).forEach(track => {
-            track.mode = track === trackEl.track ? 'showing' : 'disabled';
-          });
-          syncTextTracks();
-        }
-      }, 100);
-    } catch (err) {
-      console.error('Failed to load local subtitle:', err);
-      setErrorMsg('Could not load subtitle file');
-    }
-  };
-
-  const syncAudioTracks = () => {
-    if (hlsRef.current) {
-      const hlsTracks = hlsRef.current.audioTracks || [];
-      const activeIdx = hlsRef.current.audioTrack;
-      const list = hlsTracks.map((track) => ({
-        id: track.id,
-        label: track.name || track.lang || `Track ${track.id + 1}`,
-        active: track.id === activeIdx
-      }));
-      setAudioTracks(list);
-      setActiveAudioTrackIndex(activeIdx);
-    } else {
-      setAudioTracks([]);
-      setActiveAudioTrackIndex(-1);
-    }
-  };
-
-  const selectAudioTrack = (trackId) => {
-    if (hlsRef.current) {
-      hlsRef.current.audioTrack = trackId;
-      setActiveAudioTrackIndex(trackId);
-    }
-  };
-
-  const selectPlaybackRate = (rate) => {
-    setPlaybackRate(rate);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = rate;
-    }
-  };
-
   // Update video badges dynamically
   useEffect(() => {
     let intervalId;
@@ -599,8 +425,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
           fps: estimatedFps > 0 ? `${estimatedFps} fps` : prev.fps || '30 fps',
           resolution: resLabel || prev.resolution,
         }));
-
-        syncTextTracks();
       }, 2000);
     }
     return () => {
@@ -614,13 +438,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
       videoRef.current.pause();
     } else {
       videoRef.current.play().catch(handlePlayError);
-    }
-  };
-
-  const handleStop = () => {
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
     }
   };
 
@@ -702,19 +519,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     };
   }, []);
 
-  // Escape key handler to exit Full Browser mode
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isFullBrowser) {
-        onToggleFullBrowser();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isFullBrowser, onToggleFullBrowser]);
-
   // Auto-hide controls on mobile after 3 seconds of inactivity
   const resetControlsTimer = () => {
     setShowControls(true);
@@ -772,62 +576,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
       default:
         return 'video-aspect-fit';
     }
-  };
-
-  // Sync closed captioning/subtitles tracks dynamically
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const textTracksList = video.textTracks;
-    if (textTracksList) {
-      textTracksList.addEventListener('addtrack', syncTextTracks);
-      textTracksList.addEventListener('removetrack', syncTextTracks);
-      syncTextTracks();
-    }
-
-    return () => {
-      if (textTracksList) {
-        textTracksList.removeEventListener('addtrack', syncTextTracks);
-        textTracksList.removeEventListener('removetrack', syncTextTracks);
-      }
-    };
-  }, [channel, isPlaying]);
-
-  // Click outside to close CC dropdown menu
-  useEffect(() => {
-    if (!showTrackMenu) return;
-
-    const handleOutsideClick = (e) => {
-      if (!e.target.closest('.cc-control-container')) {
-        setShowTrackMenu(false);
-      }
-    };
-
-    document.addEventListener('click', handleOutsideClick);
-    return () => {
-      document.removeEventListener('click', handleOutsideClick);
-    };
-  }, [showTrackMenu]);
-
-  const selectTrack = (index) => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const textTracks = Array.from(video.textTracks || []).filter(
-      track => track.kind === 'subtitles' || track.kind === 'captions'
-    );
-
-    textTracks.forEach((track, i) => {
-      if (i === index) {
-        track.mode = 'showing';
-      } else {
-        track.mode = 'disabled';
-      }
-    });
-
-    setActiveTrackIndex(index);
-    setShowTrackMenu(false);
   };
 
   return (
@@ -964,10 +712,10 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                     <span>⚠️ No Sound?</span>
                   </div>
                   <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', lineHeight: '1.4', textAlign: 'left' }}>
-                    TV Series files often use AC3/EAC3 audio, which PC browsers cannot decode.
+                    AC3/EAC3 audio is not supported on PC browsers.
                   </div>
                   <div style={{ fontSize: '11px', color: '#03ffeaff', lineHeight: '1.4', textAlign: 'left' }}>
-                    Try another episode, Safari browser, or the Windows app.
+                    Try other channels, Safari browser, or our Windows app.
                   </div>
                 </div>
                 <button
@@ -1017,12 +765,8 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                 {/* Bottom Control Bar */}
                 <div className="overlay-footer">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                    <button className="control-btn play-btn" onClick={togglePlay} title={isPlaying ? "Pause" : "Play"}>
+                    <button className="control-btn play-btn" onClick={togglePlay}>
                       {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-                    </button>
-
-                    <button className="control-btn" onClick={handleStop} title="Stop">
-                      <Square size={16} fill="currentColor" />
                     </button>
 
                     <button className="control-btn" onClick={initPlayer} title="Reload stream">
@@ -1059,137 +803,11 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {isPlaying && (
-                      <>
-                        <div className="cc-control-container">
-                          <input
-                            ref={subtitleInputRef}
-                            type="file"
-                            accept=".vtt,.srt,text/vtt,application/x-subrip"
-                            onChange={handleLocalSubtitleChange}
-                            style={{ display: 'none' }}
-                          />
-                          <button 
-                            className={`control-btn ${activeTrackIndex !== -1 ? 'active' : ''}`} 
-                            onClick={() => {
-                              setShowTrackMenu(!showTrackMenu);
-                              setShowSettingsMenu(false);
-                            }} 
-                            title="Closed Captions"
-                          >
-                            <Subtitles size={16} />
-                          </button>
-                          
-                          {showTrackMenu && (
-                            <div className="cc-dropdown-menu text-digital">
-                              <div className="cc-dropdown-header">Captions</div>
-                              <button
-                                className="cc-dropdown-item"
-                                onClick={() => subtitleInputRef.current?.click()}
-                              >
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                  <FolderOpen size={14} />
-                                  Load local CC
-                                </span>
-                              </button>
-                              {localSubtitleName && (
-                                <div className="cc-dropdown-note">
-                                  {localSubtitleName}
-                                </div>
-                              )}
-                              {tracks.length === 0 ? (
-                                <div className="cc-dropdown-item disabled" style={{ opacity: 0.5, cursor: 'default', pointerEvents: 'none' }}>
-                                  None Available
-                                </div>
-                              ) : (
-                                <>
-                                  <button 
-                                    className={`cc-dropdown-item ${activeTrackIndex === -1 ? 'active' : ''}`}
-                                    onClick={() => selectTrack(-1)}
-                                  >
-                                    <span>Off</span>
-                                    {activeTrackIndex === -1 && <span className="cc-check">✓</span>}
-                                  </button>
-                                  {tracks.map((track) => (
-                                    <button 
-                                      key={track.id}
-                                      className={`cc-dropdown-item ${activeTrackIndex === track.id ? 'active' : ''}`}
-                                      onClick={() => selectTrack(track.id)}
-                                    >
-                                      <span>{track.label}</span>
-                                      {activeTrackIndex === track.id && <span className="cc-check">✓</span>}
-                                    </button>
-                                  ))}
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="settings-control-container">
-                          <button 
-                            className={`control-btn ${showSettingsMenu ? 'active' : ''}`} 
-                            onClick={() => {
-                              setShowSettingsMenu(!showSettingsMenu);
-                              setShowTrackMenu(false);
-                            }} 
-                            title="Settings"
-                          >
-                            <Settings size={16} />
-                          </button>
-                          
-                          {showSettingsMenu && (
-                            <div className="settings-dropdown-menu text-digital">
-                              <div className="settings-dropdown-header">🎵 Audio Tracks</div>
-                              {audioTracks.length === 0 ? (
-                                <div className="settings-dropdown-item disabled">
-                                  Default Track
-                                </div>
-                              ) : (
-                                audioTracks.map((track) => (
-                                  <button 
-                                    key={track.id}
-                                    className={`settings-dropdown-item ${activeAudioTrackIndex === track.id ? 'active' : ''}`}
-                                    onClick={() => selectAudioTrack(track.id)}
-                                  >
-                                    <span>{track.label}</span>
-                                    {activeAudioTrackIndex === track.id && <span className="settings-check">✓</span>}
-                                  </button>
-                                ))
-                              )}
-
-                              <div className="settings-dropdown-separator" />
-
-                              <div className="settings-dropdown-header">⚡ Playback Speed</div>
-                              {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
-                                <button
-                                  key={rate}
-                                  className={`settings-dropdown-item ${playbackRate === rate ? 'active' : ''}`}
-                                  onClick={() => selectPlaybackRate(rate)}
-                                >
-                                  <span>{rate === 1.0 ? '1.0x (Normal)' : `${rate}x`}</span>
-                                  {playbackRate === rate && <span className="settings-check">✓</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-
                     {document.pictureInPictureEnabled && (
                       <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
                         <Shrink size={16} />
                       </button>
                     )}
-
-                    <button 
-                      className={`control-btn ${isFullBrowser ? 'active' : ''}`} 
-                      onClick={onToggleFullBrowser} 
-                      title={isFullBrowser ? "Exit Full Browser" : "Expand to Full Browser"}
-                    >
-                      {isFullBrowser ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                    </button>
 
                     <button className="control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
                       {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
@@ -1203,166 +821,6 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
       )}
 
       <style>{`
-        .cc-control-container {
-          position: relative;
-          display: inline-block;
-        }
-        .settings-control-container {
-          position: relative;
-          display: inline-block;
-        }
-        .settings-dropdown-menu {
-          position: absolute;
-          bottom: 100%;
-          right: 0;
-          margin-bottom: 8px;
-          background: rgba(15, 15, 20, 0.95);
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          padding: 8px;
-          min-width: 160px;
-          max-height: 280px;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(12px);
-          z-index: 30;
-          animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-          transform-origin: bottom right;
-        }
-        .settings-dropdown-header {
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--text-muted);
-          padding: 4px 8px;
-          margin-bottom: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          text-align: left;
-        }
-        .settings-dropdown-item {
-          background: transparent;
-          border: none;
-          color: rgba(255, 255, 255, 0.8);
-          font-size: 12px;
-          font-weight: 500;
-          padding: 6px 12px;
-          border-radius: 4px;
-          text-align: left;
-          cursor: pointer;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          transition: all 0.2s ease;
-        }
-        .settings-dropdown-item:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--primary);
-        }
-        .settings-dropdown-item.active {
-          color: var(--primary);
-          background: var(--primary-glow);
-          font-weight: 600;
-        }
-        .settings-dropdown-item.disabled {
-          opacity: 0.5;
-          cursor: default;
-          pointer-events: none;
-        }
-        .settings-dropdown-separator {
-          height: 1px;
-          background: rgba(255, 255, 255, 0.06);
-          margin: 6px 0;
-        }
-        .settings-check {
-          color: var(--primary);
-          font-weight: 700;
-          font-size: 12px;
-        }
-        .cc-dropdown-menu {
-          position: absolute;
-          bottom: 100%;
-          right: 0;
-          margin-bottom: 8px;
-          background: rgba(15, 15, 20, 0.95);
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          padding: 8px;
-          min-width: 190px;
-          max-height: 200px;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(12px);
-          z-index: 30;
-          animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-          transform-origin: bottom right;
-        }
-        .cc-dropdown-header {
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--text-muted);
-          padding: 4px 8px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          margin-bottom: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          text-align: left;
-        }
-        .cc-dropdown-item {
-          background: transparent;
-          border: none;
-          color: rgba(255, 255, 255, 0.8);
-          font-size: 12px;
-          font-weight: 500;
-          padding: 6px 12px;
-          border-radius: 4px;
-          text-align: left;
-          cursor: pointer;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          transition: all 0.2s ease;
-        }
-        .cc-dropdown-item:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--primary);
-        }
-        .cc-dropdown-item.active {
-          color: var(--primary);
-          background: var(--primary-glow);
-          font-weight: 600;
-        }
-        .cc-dropdown-note {
-          color: var(--text-muted);
-          font-size: 11px;
-          padding: 2px 12px 6px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .cc-check {
-          color: var(--primary);
-          font-weight: 700;
-          font-size: 12px;
-        }
-        
-        @keyframes scaleUp {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(4px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-
         .player-wrapper {
           display: flex;
           flex-direction: column;

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QStackedWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSettings, QTimer
-from PyQt6.QtGui import QColor, QFont, QPixmap
+from PyQt6.QtGui import QColor, QFont
 
 import mock_server
 from workers import LoginWorker, SyncWorker, AdminAuthWorker, AdminSaveWorker
@@ -39,20 +39,15 @@ class LoginWidget(QWidget):
                 border-radius: 16px;
             }
             QLabel#title {
-                color: #00f0ff;
+                color: #ffffff;
                 font-size: 24px;
                 font-weight: bold;
-                margin-bottom: 2px;
+                margin-bottom: 5px;
             }
             QLabel#subtitle {
                 color: #9ca3af;
-                font-size: 14px;
-                margin-bottom: 8px;
-            }
-            QLabel#logoBadge {
-                background-color: transparent;
-                border: none;
-                padding: 0px;
+                font-size: 13px;
+                margin-bottom: 20px;
             }
             QLabel#fieldLabel {
                 color: #d1d5db;
@@ -132,38 +127,15 @@ class LoginWidget(QWidget):
         card_layout.setSpacing(15)
 
         # Header
-        logo_badge = QLabel(self)
-        logo_badge.setObjectName("logoBadge")
-        logo_badge.setFixedSize(48, 48)
-        logo_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_path = os.path.join(os.path.dirname(__file__), "favicon.png")
-        logo_badge.setPixmap(
-            QPixmap(logo_path).scaled(
-                40,
-                40,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-        )
-
         title = QLabel("SUPER STREAM", self)
         title.setObjectName("title")
-        title.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        subtitle = QLabel("August IPTV Player", self)
+        subtitle = QLabel("Login with your Xtream Codes API server", self)
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        brand_row = QWidget(self)
-        brand_layout = QHBoxLayout(brand_row)
-        brand_layout.setContentsMargins(0, 0, 0, 0)
-        brand_layout.setSpacing(10)
-        brand_layout.addStretch()
-        brand_layout.addWidget(logo_badge)
-        brand_layout.addWidget(title)
-        brand_layout.addStretch()
-
-        card_layout.addWidget(brand_row)
+        card_layout.addWidget(title)
         card_layout.addWidget(subtitle)
 
         # Input Fields

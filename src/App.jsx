@@ -43,24 +43,13 @@ export default function App() {
 
   const [series, setSeries] = useState([]);
   const [seriesCategories, setSeriesCategories] = useState([]);
-  const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All TV Series');
+  const [selectedSeriesCategory, setSelectedSeriesCategory] = useState('All');
   const [selectedSeriesItem, setSelectedSeriesItem] = useState(null); // Active series for detailed episodes
   const [seriesEpisodes, setSeriesEpisodes] = useState([]); // Season-grouped episodes for active series
 
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isFullBrowser, setIsFullBrowser] = useState(false);
-  const [xtreamStreamFormat, setXtreamStreamFormat] = useState(() => {
-    return localStorage.getItem('streampulse_xtream_format') || 'ts';
-  });
-
-  // Reset full browser mode when no channel is selected
-  useEffect(() => {
-    if (!selectedChannel) {
-      setIsFullBrowser(false);
-    }
-  }, [selectedChannel]);
 
 
   // Proxy state (synced with PlaylistSelector)
@@ -141,39 +130,6 @@ export default function App() {
     localStorage.setItem('streampulse_favs', JSON.stringify(newFavs));
   };
 
-  const handleStreamFormatChange = (newFormat) => {
-    setXtreamStreamFormat(newFormat);
-    localStorage.setItem('streampulse_xtream_format', newFormat);
-
-    // Dynamically update the URLs of already loaded channels in state
-    setChannels(prev => prev.map(ch => {
-      if (ch.type === 'live' && ch.streamId) {
-        const creds = playlistInfo?.credentials;
-        if (creds) {
-          return {
-            ...ch,
-            url: `${creds.host}/live/${creds.username}/${creds.password}/${ch.streamId}.${newFormat}`
-          };
-        }
-      }
-      return ch;
-    }));
-
-    // If a channel is currently playing, update its url to reload in the new format
-    setSelectedChannel(prev => {
-      if (prev && prev.type === 'live' && prev.streamId) {
-        const creds = playlistInfo?.credentials;
-        if (creds) {
-          return {
-            ...prev,
-            url: `${creds.host}/live/${creds.username}/${creds.password}/${prev.streamId}.${newFormat}`
-          };
-        }
-      }
-      return prev;
-    });
-  };
-
   const toggleFavorite = (channelId, e) => {
     if (e) e.stopPropagation();
     if (favorites.includes(channelId)) {
@@ -234,12 +190,6 @@ export default function App() {
       if (!catResponse.ok) throw new Error('Live categories load failed');
       const catsJson = await catResponse.json();
 
-      // Show categories immediately, then continue loading channels.
-      const earlyServerCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setCategories([...new Set(['All Channels', '🏆 Sports', ...earlyServerCats])]);
-      setSelectedCategory('All Channels');
-      setActiveTab('live');
-
       // Fetch Live Streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_live_streams`;
       const streamsFetchUrl = proxy ? `${pUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
@@ -262,7 +212,7 @@ export default function App() {
       const formattedChannels = Array.isArray(streamsJson)
         ? streamsJson.map(s => {
           s.category_name = catMap[s.category_id] || 'Uncategorized';
-          return formatXtreamLiveStream(s, host, username, password, xtreamStreamFormat);
+          return formatXtreamLiveStream(s, host, username, password);
         })
         : [];
 
@@ -297,11 +247,6 @@ export default function App() {
       const catFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(catUrl)}` : catUrl;
       const catResponse = await fetch(catFetchUrl);
       const catsJson = await catResponse.json();
-
-      // Show movie categories immediately, then continue loading movies.
-      const earlyMovieCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setMovieCategories(['All Movies', ...new Set(earlyMovieCats)]);
-      setSelectedMovieCategory('All Movies');
 
       // Fetch streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_vod_streams`;
@@ -347,11 +292,6 @@ export default function App() {
       const catResponse = await fetch(catFetchUrl);
       const catsJson = await catResponse.json();
 
-      // Show series categories immediately, then continue loading series.
-      const earlySeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setSeriesCategories(['All TV Series', ...new Set(earlySeriesCats)]);
-      setSelectedSeriesCategory('All TV Series');
-
       // Fetch streams
       const streamsUrl = `${host}/player_api.php?username=${username}&password=${password}&action=get_series`;
       const streamsFetchUrl = useProxy ? `${proxyUrl}${encodeURIComponent(streamsUrl)}` : streamsUrl;
@@ -373,9 +313,9 @@ export default function App() {
         : [];
 
       const serverSeriesCats = Array.isArray(catsJson) ? catsJson.map(c => c.category_name).filter(Boolean) : [];
-      setSeriesCategories(['All TV Series', ...new Set(serverSeriesCats)]);
+      setSeriesCategories(['All Series', ...new Set(serverSeriesCats)]);
       setSeries(formattedSeries);
-      setSelectedSeriesCategory('All TV Series');
+      setSelectedSeriesCategory('All Series');
     } catch (err) {
       console.error(err);
       setErrorMsg(`Failed to fetch series: ${err.message}`);
@@ -419,8 +359,7 @@ export default function App() {
       logo: selectedSeriesItem.logo,
       category: selectedSeriesItem.category,
       url: streamUrl,
-      type: 'series',
-      containerExtension: ext
+      type: 'video'
     });
   };
 
@@ -478,7 +417,7 @@ export default function App() {
 
   const getFilteredSeries = () => {
     let list = series;
-    if (selectedSeriesCategory !== 'All TV Series') {
+    if (selectedSeriesCategory !== 'All Series') {
       list = list.filter(s => s.category === selectedSeriesCategory);
     }
     if (searchQuery) {
@@ -492,7 +431,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-container ${isFullBrowser ? 'full-browser-mode' : ''}`}>
+    <div className="app-container">
       {/* Mobile Top Header */}
       <header className="mobile-header">
         <button
@@ -541,8 +480,6 @@ export default function App() {
             customLoadValue={customLoadValue}
             handleCustomValueChange={handleCustomValueChange}
             selectValue={selectValue}
-            xtreamStreamFormat={xtreamStreamFormat}
-            onStreamFormatChange={handleStreamFormatChange}
           />
         ) : (
           <div className="dashboard-grid">
@@ -550,11 +487,7 @@ export default function App() {
             {/* Left side: player only */}
             <div className="player-column">
               <div className={`player-wrapper-container ${!selectedChannel ? 'placeholder' : ''}`}>
-                <Player
-                  channel={selectedChannel}
-                  isFullBrowser={isFullBrowser}
-                  onToggleFullBrowser={() => setIsFullBrowser(!isFullBrowser)}
-                />
+                <Player channel={selectedChannel} />
               </div>
             </div>
 
@@ -630,332 +563,332 @@ export default function App() {
                 {/* If no sidebar (favorites tab or series episode view), no left column */}
                 <div className="content-col">
 
-                  {/* Primary list renderer */}
-                  <div className="list-items-container">
-                    {loadingMedia ? (
-                      <div className="list-loading-state">
-                        <RefreshCw className="spin-animation" size={24} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
-                        <p>Updating catalogs...</p>
-                      </div>
-                    ) : errorMsg ? (
-                      <div className="list-error-state">
-                        <AlertCircle size={24} style={{ color: '#ef4444', marginBottom: '8px' }} />
-                        <p>{errorMsg}</p>
-                      </div>
-                    ) : activeTab === 'live' || activeTab === 'favorites' ? (
-                      /* Live TV or Favorites List */
-                      <div className="channels-list">
-                        {getFilteredChannels().slice(0, displayLimit).map((ch) => {
-                          const isActive = selectedChannel?.uniqueId === ch.uniqueId;
-                          const isFav = favorites.includes(ch.uniqueId);
-                          return (
-                            <div
-                              key={ch.uniqueId}
-                              className={`channel-item-card ${isActive ? 'active' : ''}`}
-                              onClick={() => setSelectedChannel(ch)}
-                            >
-                              <div className="channel-logo-container">
-                                {ch.logo ? (
-                                  <img src={ch.logo} alt="" onError={(e) => e.target.style.display = 'none'} />
-                                ) : (
-                                  <Tv size={18} style={{ color: 'var(--text-dark)' }} />
-                                )}
-                              </div>
+              {/* Primary list renderer */}
+              <div className="list-items-container">
+                {loadingMedia ? (
+                  <div className="list-loading-state">
+                    <RefreshCw className="spin-animation" size={24} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
+                    <p>Updating catalogs...</p>
+                  </div>
+                ) : errorMsg ? (
+                  <div className="list-error-state">
+                    <AlertCircle size={24} style={{ color: '#ef4444', marginBottom: '8px' }} />
+                    <p>{errorMsg}</p>
+                  </div>
+                ) : activeTab === 'live' || activeTab === 'favorites' ? (
+                  /* Live TV or Favorites List */
+                  <div className="channels-list">
+                    {getFilteredChannels().slice(0, displayLimit).map((ch) => {
+                      const isActive = selectedChannel?.uniqueId === ch.uniqueId;
+                      const isFav = favorites.includes(ch.uniqueId);
+                      return (
+                        <div
+                          key={ch.uniqueId}
+                          className={`channel-item-card ${isActive ? 'active' : ''}`}
+                          onClick={() => setSelectedChannel(ch)}
+                        >
+                          <div className="channel-logo-container">
+                            {ch.logo ? (
+                              <img src={ch.logo} alt="" onError={(e) => e.target.style.display = 'none'} />
+                            ) : (
+                              <Tv size={18} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                          </div>
 
-                              <div className="channel-details">
-                                <div className="channel-name-txt">{ch.name}</div>
-                                <div className="channel-category-txt">{ch.category}</div>
-                              </div>
+                          <div className="channel-details">
+                            <div className="channel-name-txt">{ch.name}</div>
+                            <div className="channel-category-txt">{ch.category}</div>
+                          </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(ch.uniqueId, e)}>
-                                  <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
-                                </button>
-                                {isActive && <Play size={12} fill="var(--primary)" style={{ color: 'var(--primary)' }} />}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {getFilteredChannels().length > displayLimit && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto' }}>
-                            <button
-                              className="btn btn-secondary"
-                              onClick={() => setDisplayLimit(prev => prev + loadStep)}
-                              style={{ display: 'block', width: '200px' }}
-                            >
-                              Load More ({getFilteredChannels().length - displayLimit} remaining)
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(ch.uniqueId, e)}>
+                              <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
                             </button>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
-                              <span>Load amount:</span>
-                              <select
-                                value={selectValue}
-                                onChange={e => handleLoadStepChange(e.target.value)}
-                                style={{
-                                  background: 'rgba(255,255,255,0.03)',
-                                  border: '1px solid var(--border-color)',
-                                  color: 'var(--text-muted)',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  fontSize: '11px'
-                                }}
-                              >
-                                <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
-                                <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
-                                <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
-                                <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
-                                <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
-                                <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
-                                <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
-                              </select>
-                              {selectValue === 'custom' && (
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={customLoadValue}
-                                  onChange={e => handleCustomValueChange(e.target.value)}
-                                  style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid var(--border-color)',
-                                    color: '#fff',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px',
-                                    outline: 'none',
-                                    fontSize: '11px',
-                                    width: '70px'
-                                  }}
-                                  placeholder="Amount"
-                                />
-                              )}
-                            </div>
+                            {isActive && <Play size={12} fill="var(--primary)" style={{ color: 'var(--primary)' }} />}
                           </div>
-                        )}
-                        {getFilteredChannels().length === 0 && (
-                          <div className="list-empty-state">No matching streams found</div>
-                        )}
-                      </div>
-                    ) : activeTab === 'movies' ? (
-                      /* VOD Movie Grid */
-                      <div className="vod-grid">
-                        {getFilteredMovies().slice(0, displayLimit).map((mv) => {
-                          const isActive = selectedChannel?.uniqueId === mv.uniqueId;
-                          const isFav = favorites.includes(mv.uniqueId);
-                          return (
-                            <div key={mv.uniqueId} className="vod-card" onClick={() => setSelectedChannel(mv)}>
-                              <div className="vod-thumbnail">
-                                {mv.logo ? (
-                                  <img src={mv.logo} alt={mv.name} loading="lazy" />
-                                ) : (
-                                  <Film size={32} style={{ color: 'var(--text-dark)' }} />
-                                )}
-                                <div className="vod-overlay-play">
-                                  <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
-                                </div>
-                                {mv.rating && <span className="vod-badge-rating">{mv.rating}</span>}
-                              </div>
-                              <div className="vod-title" title={mv.name}>{mv.name}</div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{mv.year || 'VOD'}</span>
-                                <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(mv.uniqueId, e)}>
-                                  <Star size={11} fill={isFav ? 'currentColor' : 'none'} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {getFilteredMovies().length > displayLimit && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
-                            <button
-                              className="btn btn-secondary"
-                              onClick={() => setDisplayLimit(prev => prev + loadStep)}
-                              style={{ display: 'block', width: '200px' }}
-                            >
-                              Load More ({getFilteredMovies().length - displayLimit} remaining)
-                            </button>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
-                              <span>Load amount:</span>
-                              <select
-                                value={selectValue}
-                                onChange={e => handleLoadStepChange(e.target.value)}
-                                style={{
-                                  background: 'rgba(255,255,255,0.03)',
-                                  border: '1px solid var(--border-color)',
-                                  color: 'var(--text-muted)',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  fontSize: '11px'
-                                }}
-                              >
-                                <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
-                                <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
-                                <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
-                                <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
-                                <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
-                                <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
-                                <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
-                              </select>
-                              {selectValue === 'custom' && (
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={customLoadValue}
-                                  onChange={e => handleCustomValueChange(e.target.value)}
-                                  style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid var(--border-color)',
-                                    color: '#fff',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px',
-                                    outline: 'none',
-                                    fontSize: '11px',
-                                    width: '70px'
-                                  }}
-                                  placeholder="Amount"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {getFilteredMovies().length === 0 && (
-                          <div className="list-empty-state">No movies found</div>
-                        )}
-                      </div>
-                    ) : activeTab === 'series' ? (
-                      /* TV Series Browser and Episode Selector */
-                      selectedSeriesItem ? (
-                        <div className="series-episodes-view">
-                          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSeriesItem(null)} style={{ marginBottom: '16px', padding: '6px 12px', fontSize: '11px' }}>
-                            ← Back to TV Series List
-                          </button>
-
-                          <div className="series-details-header">
-                            {selectedSeriesItem.logo && <img src={selectedSeriesItem.logo} alt="" style={{ height: '70px', borderRadius: '4px', objectFit: 'cover' }} />}
-                            <div>
-                              <h3 style={{ fontSize: '15px', color: '#fff' }}>{selectedSeriesItem.name}</h3>
-                              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedSeriesItem.category}</p>
-                              {selectedSeriesItem.rating && <span style={{ fontSize: '10px', color: 'var(--accent)' }}>★ {selectedSeriesItem.rating}</span>}
-                            </div>
-                          </div>
-
-                          {loadingEpisodes ? (
-                            <div style={{ textAlign: 'center', padding: '24px' }}>
-                              <RefreshCw className="spin-animation" size={20} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
-                              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Fetching season guides...</p>
-                            </div>
-                          ) : (
-                            <div className="seasons-container">
-                              {Object.keys(seriesEpisodes).map((seasonNum) => (
-                                <div key={seasonNum} style={{ marginBottom: '16px' }}>
-                                  <h4 style={{ fontSize: '12px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '8px', fontWeight: '700' }}>
-                                    Season {seasonNum}
-                                  </h4>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    {seriesEpisodes[seasonNum].map((ep) => (
-                                      <div
-                                        key={ep.id}
-                                        className="episode-item"
-                                        onClick={() => playEpisode(ep, selectedSeriesItem.name)}
-                                      >
-                                        <span style={{ fontWeight: '700', color: 'var(--primary)', minWidth: '36px' }}>E{ep.episode_num}</span>
-                                        <span style={{ flex: 1, color: '#fff', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</span>
-                                        <Play size={10} style={{ color: 'var(--text-dark)' }} />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                              {Object.keys(seriesEpisodes).length === 0 && (
-                                <div className="list-empty-state">No episodes available</div>
-                              )}
-                            </div>
+                        </div>
+                      );
+                    })}
+                    {getFilteredChannels().length > displayLimit && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto' }}>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                          style={{ display: 'block', width: '200px' }}
+                        >
+                          Load More ({getFilteredChannels().length - displayLimit} remaining)
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                          <span>Load amount:</span>
+                          <select
+                            value={selectValue}
+                            onChange={e => handleLoadStepChange(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-muted)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              outline: 'none',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                            <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                            <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                            <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                            <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                            <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                            <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                          </select>
+                          {selectValue === 'custom' && (
+                            <input
+                              type="number"
+                              min="1"
+                              value={customLoadValue}
+                              onChange={e => handleCustomValueChange(e.target.value)}
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: '#fff',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                outline: 'none',
+                                fontSize: '11px',
+                                width: '70px'
+                              }}
+                              placeholder="Amount"
+                            />
                           )}
                         </div>
+                      </div>
+                    )}
+                    {getFilteredChannels().length === 0 && (
+                      <div className="list-empty-state">No matching streams found</div>
+                    )}
+                  </div>
+                ) : activeTab === 'movies' ? (
+                  /* VOD Movie Grid */
+                  <div className="vod-grid">
+                    {getFilteredMovies().slice(0, displayLimit).map((mv) => {
+                      const isActive = selectedChannel?.uniqueId === mv.uniqueId;
+                      const isFav = favorites.includes(mv.uniqueId);
+                      return (
+                        <div key={mv.uniqueId} className="vod-card" onClick={() => setSelectedChannel(mv)}>
+                          <div className="vod-thumbnail">
+                            {mv.logo ? (
+                              <img src={mv.logo} alt={mv.name} loading="lazy" />
+                            ) : (
+                              <Film size={32} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                            <div className="vod-overlay-play">
+                              <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
+                            </div>
+                            {mv.rating && <span className="vod-badge-rating">{mv.rating}</span>}
+                          </div>
+                          <div className="vod-title" title={mv.name}>{mv.name}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{mv.year || 'VOD'}</span>
+                            <button className={`fav-btn ${isFav ? 'active' : ''}`} onClick={(e) => toggleFavorite(mv.uniqueId, e)}>
+                              <Star size={11} fill={isFav ? 'currentColor' : 'none'} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {getFilteredMovies().length > displayLimit && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                          style={{ display: 'block', width: '200px' }}
+                        >
+                          Load More ({getFilteredMovies().length - displayLimit} remaining)
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                          <span>Load amount:</span>
+                          <select
+                            value={selectValue}
+                            onChange={e => handleLoadStepChange(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-muted)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              outline: 'none',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                            <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                            <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                            <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                            <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                            <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                            <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                          </select>
+                          {selectValue === 'custom' && (
+                            <input
+                              type="number"
+                              min="1"
+                              value={customLoadValue}
+                              onChange={e => handleCustomValueChange(e.target.value)}
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: '#fff',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                outline: 'none',
+                                fontSize: '11px',
+                                width: '70px'
+                              }}
+                              placeholder="Amount"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {getFilteredMovies().length === 0 && (
+                      <div className="list-empty-state">No movies found</div>
+                    )}
+                  </div>
+                ) : activeTab === 'series' ? (
+                  /* Series Browser and Episode Selector */
+                  selectedSeriesItem ? (
+                    <div className="series-episodes-view">
+                      <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSeriesItem(null)} style={{ marginBottom: '16px', padding: '6px 12px', fontSize: '11px' }}>
+                        ← Back to Series List
+                      </button>
+
+                      <div className="series-details-header">
+                        {selectedSeriesItem.logo && <img src={selectedSeriesItem.logo} alt="" style={{ height: '70px', borderRadius: '4px', objectFit: 'cover' }} />}
+                        <div>
+                          <h3 style={{ fontSize: '15px', color: '#fff' }}>{selectedSeriesItem.name}</h3>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedSeriesItem.category}</p>
+                          {selectedSeriesItem.rating && <span style={{ fontSize: '10px', color: 'var(--accent)' }}>★ {selectedSeriesItem.rating}</span>}
+                        </div>
+                      </div>
+
+                      {loadingEpisodes ? (
+                        <div style={{ textAlign: 'center', padding: '24px' }}>
+                          <RefreshCw className="spin-animation" size={20} style={{ color: 'var(--primary)', marginBottom: '8px' }} />
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Fetching season guides...</p>
+                        </div>
                       ) : (
-                        <div className="vod-grid">
-                          {getFilteredSeries().slice(0, displayLimit).map((sr) => (
-                            <div key={sr.uniqueId} className="vod-card" onClick={() => handleSelectSeries(sr)}>
-                              <div className="vod-thumbnail">
-                                {sr.logo ? (
-                                  <img src={sr.logo} alt={sr.name} loading="lazy" />
-                                ) : (
-                                  <Film size={32} style={{ color: 'var(--text-dark)' }} />
-                                )}
-                                <div className="vod-overlay-play">
-                                  <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
-                                </div>
-                                {sr.rating && <span className="vod-badge-rating">{sr.rating}</span>}
-                              </div>
-                              <div className="vod-title" title={sr.name}>{sr.name}</div>
-                              <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginTop: '4px' }}>
-                                {sr.releaseDate || 'TV Series'}
+                        <div className="seasons-container">
+                          {Object.keys(seriesEpisodes).map((seasonNum) => (
+                            <div key={seasonNum} style={{ marginBottom: '16px' }}>
+                              <h4 style={{ fontSize: '12px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '8px', fontWeight: '700' }}>
+                                Season {seasonNum}
+                              </h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {seriesEpisodes[seasonNum].map((ep) => (
+                                  <div
+                                    key={ep.id}
+                                    className="episode-item"
+                                    onClick={() => playEpisode(ep, selectedSeriesItem.name)}
+                                  >
+                                    <span style={{ fontWeight: '700', color: 'var(--primary)', minWidth: '36px' }}>E{ep.episode_num}</span>
+                                    <span style={{ flex: 1, color: '#fff', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</span>
+                                    <Play size={10} style={{ color: 'var(--text-dark)' }} />
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           ))}
-                          {getFilteredSeries().length > displayLimit && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
-                              <button
-                                className="btn btn-secondary"
-                                onClick={() => setDisplayLimit(prev => prev + loadStep)}
-                                style={{ display: 'block', width: '200px' }}
-                              >
-                                Load More ({getFilteredSeries().length - displayLimit} remaining)
-                              </button>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
-                                <span>Load amount:</span>
-                                <select
-                                  value={selectValue}
-                                  onChange={e => handleLoadStepChange(e.target.value)}
-                                  style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid var(--border-color)',
-                                    color: 'var(--text-muted)',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px',
-                                    cursor: 'pointer',
-                                    outline: 'none',
-                                    fontSize: '11px'
-                                  }}
-                                >
-                                  <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
-                                  <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
-                                  <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
-                                  <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
-                                  <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
-                                  <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
-                                  <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
-                                </select>
-                                {selectValue === 'custom' && (
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={customLoadValue}
-                                    onChange={e => handleCustomValueChange(e.target.value)}
-                                    style={{
-                                      background: 'rgba(255,255,255,0.03)',
-                                      border: '1px solid var(--border-color)',
-                                      color: '#fff',
-                                      borderRadius: '4px',
-                                      padding: '4px 8px',
-                                      outline: 'none',
-                                      fontSize: '11px',
-                                      width: '70px'
-                                    }}
-                                    placeholder="Amount"
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {getFilteredSeries().length === 0 && (
-                            <div className="list-empty-state">No TV series found</div>
+                          {Object.keys(seriesEpisodes).length === 0 && (
+                            <div className="list-empty-state">No episodes available</div>
                           )}
                         </div>
-                      )
-                    ) : null}
-                  </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="vod-grid">
+                      {getFilteredSeries().slice(0, displayLimit).map((sr) => (
+                        <div key={sr.uniqueId} className="vod-card" onClick={() => handleSelectSeries(sr)}>
+                          <div className="vod-thumbnail">
+                            {sr.logo ? (
+                              <img src={sr.logo} alt={sr.name} loading="lazy" />
+                            ) : (
+                              <Film size={32} style={{ color: 'var(--text-dark)' }} />
+                            )}
+                            <div className="vod-overlay-play">
+                              <PlayCircle size={40} style={{ color: 'var(--primary)' }} />
+                            </div>
+                            {sr.rating && <span className="vod-badge-rating">{sr.rating}</span>}
+                          </div>
+                          <div className="vod-title" title={sr.name}>{sr.name}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dark)', marginTop: '4px' }}>
+                            {sr.releaseDate || 'Series'}
+                          </div>
+                        </div>
+                      ))}
+                      {getFilteredSeries().length > displayLimit && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: '16px auto', gridColumn: '1 / -1' }}>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => setDisplayLimit(prev => prev + loadStep)}
+                            style={{ display: 'block', width: '200px' }}
+                          >
+                            Load More ({getFilteredSeries().length - displayLimit} remaining)
+                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-dark)' }}>
+                            <span>Load amount:</span>
+                            <select
+                              value={selectValue}
+                              onChange={e => handleLoadStepChange(e.target.value)}
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-muted)',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                fontSize: '11px'
+                              }}
+                            >
+                              <option value="50" style={{ background: '#0e111a', color: '#fff' }}>50</option>
+                              <option value="100" style={{ background: '#0e111a', color: '#fff' }}>100</option>
+                              <option value="200" style={{ background: '#0e111a', color: '#fff' }}>200</option>
+                              <option value="500" style={{ background: '#0e111a', color: '#fff' }}>500</option>
+                              <option value="1000" style={{ background: '#0e111a', color: '#fff' }}>1000</option>
+                              <option value="custom" style={{ background: '#0e111a', color: '#fff' }}>Custom...</option>
+                              <option value="all" style={{ background: '#0e111a', color: '#fff' }}>Show All</option>
+                            </select>
+                            {selectValue === 'custom' && (
+                              <input
+                                type="number"
+                                min="1"
+                                value={customLoadValue}
+                                onChange={e => handleCustomValueChange(e.target.value)}
+                                style={{
+                                  background: 'rgba(255,255,255,0.03)',
+                                  border: '1px solid var(--border-color)',
+                                  color: '#fff',
+                                  borderRadius: '4px',
+                                  padding: '4px 8px',
+                                  outline: 'none',
+                                  fontSize: '11px',
+                                  width: '70px'
+                                }}
+                                placeholder="Amount"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {getFilteredSeries().length === 0 && (
+                        <div className="list-empty-state">No series found</div>
+                      )}
+                    </div>
+                  )
+                ) : null}
+              </div>
                 </div>
               </div>
             </div>
@@ -1000,7 +933,7 @@ export default function App() {
               }}
             >
               <Clapperboard size={20} />
-              <span>TV Series</span>
+              <span>Series</span>
             </button>
           </>
         )}
@@ -1036,61 +969,6 @@ export default function App() {
       </nav>
 
       <style>{`
-        /* Full Browser Mode */
-        .full-browser-mode .sidebar-container {
-          display: none !important;
-        }
-        .full-browser-mode .main-list-panel {
-          display: none !important;
-        }
-        .full-browser-mode .mobile-header {
-          display: none !important;
-        }
-        .full-browser-mode .mobile-bottom-nav {
-          display: none !important;
-        }
-        .full-browser-mode .dashboard-grid {
-          grid-template-columns: 1fr !important;
-          grid-template-rows: 1fr !important;
-          padding: 0 !important;
-          gap: 0 !important;
-          height: 100vh !important;
-          height: 100dvh !important;
-          width: 100vw !important;
-          max-height: none !important;
-          overflow: hidden !important;
-        }
-        .full-browser-mode .player-column {
-          height: 100% !important;
-          width: 100% !important;
-          max-height: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        .full-browser-mode .player-wrapper-container {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          height: 100dvh !important;
-          z-index: 9999 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border-radius: 0 !important;
-          background: #000 !important;
-          max-height: none !important;
-          max-width: none !important;
-          min-height: 0 !important;
-          min-width: 0 !important;
-          aspect-ratio: auto !important;
-        }
-        .full-browser-mode .player-wrapper {
-          border-radius: 0 !important;
-          height: 100% !important;
-          width: 100% !important;
-        }
-
         .player-column {
           height: 100%;
           display: flex;
@@ -1309,7 +1187,7 @@ export default function App() {
           color: #f59e0b;
         }
 
-        /* VOD & TV Series Grid */
+        /* VOD & Series Grid */
         .vod-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -1374,7 +1252,7 @@ export default function App() {
           text-overflow: ellipsis;
         }
 
-        /* TV Series view details */
+        /* Series view details */
         .series-details-header {
           display: flex;
           gap: 16px;

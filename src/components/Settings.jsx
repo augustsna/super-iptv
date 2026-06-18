@@ -27,9 +27,7 @@ export default function Settings({
   handleLoadStepChange,
   customLoadValue,
   handleCustomValueChange,
-  selectValue,
-  xtreamStreamFormat,
-  onStreamFormatChange
+  selectValue
 }) {
   const expiry = getExpiryInfo(playlistInfo?.userInfo?.exp_date);
   const hostDisplay = playlistInfo?.type === 'xtream'
@@ -154,33 +152,6 @@ export default function Settings({
             </span>
           </div>
         </section>
-
-        {/* STREAM FORMAT SELECTION */}
-        {playlistInfo?.type === 'xtream' && (
-          <section className="settings-section">
-            <div className="section-title">
-              <Radio size={18} />
-              <span>Live TV Stream Format</span>
-            </div>
-            <div className="section-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Streaming Protocol / Extension</span>
-                <select
-                  value={xtreamStreamFormat}
-                  onChange={e => onStreamFormatChange(e.target.value)}
-                  className="settings-select"
-                  style={{ width: '160px' }}
-                >
-                  <option value="ts">MPEG-TS (.ts)</option>
-                  <option value="m3u8">HLS (.m3u8)</option>
-                </select>
-              </div>
-              <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark)', marginTop: '8px' }}>
-                Note: HLS (.m3u8) streams allow your browser to decode and display Closed Captions (CC), but may take slightly longer to buffer initially. MPEG-TS (.ts) streams buffer faster but do not support browser-based captions.
-              </span>
-            </div>
-          </section>
-        )}
 
         {/* DATA MANAGEMENT */}
         <section className="settings-section">

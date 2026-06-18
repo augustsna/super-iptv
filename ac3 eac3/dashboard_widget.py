@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QLabel, QLineEdit, QStackedWidget, QSplitter,
     QFrame, QComboBox, QScrollArea, QSizePolicy, QStyle, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QTimer, QSettings
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QTimer
 from PyQt6.QtGui import QColor, QFont, QPixmap, QIcon
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
@@ -22,12 +22,6 @@ class DashboardWidget(QWidget):
 
     def __init__(self, client, parent=None):
         super().__init__(parent)
-        self.settings = QSettings("XtreamPlayer", "AppSettings")
-        self.batch_combo = None
-        self.live_batch_combo = None
-        self.movie_batch_combo = None
-        self.series_batch_combo = None
-        self.default_batch_limit = "50"
         self.client = client
         self.player_widget = PlayerWidget(self)
         self.player_widget.full_program_state_changed.connect(self.on_player_full_program_changed)
@@ -55,48 +49,6 @@ class DashboardWidget(QWidget):
         
         # Trigger initial loading of Live TV categories
         self.show_live_tv()
-
-    def on_batch_limit_changed(self, text):
-        for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
-            if combo is not None and combo.currentText() != text:
-                combo.blockSignals(True)
-                combo.setCurrentText(text)
-                combo.blockSignals(False)
-        self.reload_active_tab_streams()
-
-    def reload_active_tab_streams(self):
-        if not hasattr(self, 'content_stack') or self.content_stack is None:
-            return
-        active_tab = self.content_stack.currentIndex()
-        if active_tab == 0:
-            if hasattr(self, 'live_cat_list') and self.live_cat_list is not None:
-                self.on_live_category_changed(self.live_cat_list.currentRow())
-        elif active_tab == 1:
-            if hasattr(self, 'movie_cat_list') and self.movie_cat_list is not None:
-                self.on_movie_category_changed(self.movie_cat_list.currentRow())
-        elif active_tab == 2:
-            if hasattr(self, 'series_cat_list') and self.series_cat_list is not None:
-                self.on_series_category_changed(self.series_cat_list.currentRow())
-
-    def get_batch_size(self):
-        text = None
-        for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
-            if combo is not None:
-                text = combo.currentText()
-                break
-        if not text:
-            text = "50"
-            
-        text = text.strip().lower()
-        if "all" in text:
-            return 9999999
-        digits = "".join([c for c in text if c.isdigit()])
-        if digits:
-            try:
-                return max(1, int(digits))
-            except ValueError:
-                pass
-        return 50  # fallback default
 
     def setup_ui(self):
         self.setObjectName("DashboardWidget")
@@ -286,26 +238,17 @@ class DashboardWidget(QWidget):
         # App Logo
         import os
         brand_widget = QWidget(self.sidebar)
-        brand_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        brand_widget.setToolTip("Go to Home")
         brand_layout = QHBoxLayout(brand_widget)
         brand_layout.setContentsMargins(20, 15, 15, 15)
         brand_layout.setSpacing(10)
         
         logo_icon = QLabel(brand_widget)
-        logo_icon.setCursor(Qt.CursorShape.PointingHandCursor)
-        logo_icon.setToolTip("Go to Home")
         icon_path = os.path.join(os.path.dirname(__file__), "favicon.png")
         logo_icon.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
         logo = QLabel("Super Stream", brand_widget)
         logo.setObjectName("logoText")
         logo.setStyleSheet("padding: 0px;")
-        logo.setCursor(Qt.CursorShape.PointingHandCursor)
-        logo.setToolTip("Go to Home")
-        brand_widget.mousePressEvent = self.go_home
-        logo_icon.mousePressEvent = self.go_home
-        logo.mousePressEvent = self.go_home
         
         brand_layout.addWidget(logo_icon)
         brand_layout.addWidget(logo)
@@ -318,7 +261,7 @@ class DashboardWidget(QWidget):
         nav_items = [
             ("Live TV", self.show_live_tv, "tv"),
             ("Movies", self.show_movies, "film"),
-            ("TV Series", self.show_series, "clapperboard"),
+            ("Series", self.show_series, "clapperboard"),
         ]
         
         import os
@@ -653,48 +596,8 @@ class DashboardWidget(QWidget):
         self.live_lists_splitter.addWidget(self.live_cat_widget)
         self.live_lists_splitter.addWidget(self.live_channel_widget)
         self.live_lists_splitter.setSizes([215, 215])
-        wrapper_layout.addWidget(self.live_lists_splitter)
 
-        # Bottom load amount bar matching webapp style
-        saved_limit = self.default_batch_limit
-        bottom_layout = QHBoxLayout()
-        bottom_layout.setContentsMargins(5, 0, 5, 0)
-        load_label = QLabel("Load amount:", self)
-        load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
-        
-        self.live_batch_combo = QComboBox(self)
-        self.live_batch_combo.setEditable(True)
-        self.live_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
-        self.live_batch_combo.setStyleSheet("""
-            QComboBox {
-                color: white;
-                background-color: #1e2538;
-                padding: 4px 8px;
-                border: 1px solid #2c354f;
-                border-radius: 4px;
-                font-size: 11px;
-                min-width: 90px;
-                max-width: 120px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #10141e;
-                color: white;
-                selection-background-color: #00f0ff;
-                selection-color: black;
-            }
-            QLineEdit {
-                color: white;
-                background-color: transparent;
-                border: none;
-            }
-        """)
-        self.live_batch_combo.setCurrentText(saved_limit)
-        self.live_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
-        
-        bottom_layout.addStretch()
-        bottom_layout.addWidget(load_label)
-        bottom_layout.addWidget(self.live_batch_combo)
-        wrapper_layout.addLayout(bottom_layout)
+        wrapper_layout.addWidget(self.live_lists_splitter)
 
         # Add to splitter in new order: Player (left/middle), Lists wrapper (right)
         self.live_splitter.addWidget(self.live_detail_pane)
@@ -871,26 +774,8 @@ class DashboardWidget(QWidget):
         self.movie_lists_splitter.addWidget(self.movie_cat_widget)
         self.movie_lists_splitter.addWidget(self.movie_list_widget)
         self.movie_lists_splitter.setSizes([215, 215])
-        wrapper_layout.addWidget(self.movie_lists_splitter)
 
-        # Bottom load amount bar matching webapp style
-        saved_limit = self.default_batch_limit
-        movie_bottom_layout = QHBoxLayout()
-        movie_bottom_layout.setContentsMargins(5, 0, 5, 0)
-        movie_load_label = QLabel("Load amount:", self)
-        movie_load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
-        
-        self.movie_batch_combo = QComboBox(self)
-        self.movie_batch_combo.setEditable(True)
-        self.movie_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
-        self.movie_batch_combo.setStyleSheet(self.live_batch_combo.styleSheet())
-        self.movie_batch_combo.setCurrentText(saved_limit)
-        self.movie_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
-        
-        movie_bottom_layout.addStretch()
-        movie_bottom_layout.addWidget(movie_load_label)
-        movie_bottom_layout.addWidget(self.movie_batch_combo)
-        wrapper_layout.addLayout(movie_bottom_layout)
+        wrapper_layout.addWidget(self.movie_lists_splitter)
 
         self.movie_splitter.addWidget(self.movie_detail_pane)
         self.movie_splitter.addWidget(self.movie_lists_wrapper)
@@ -936,7 +821,7 @@ class DashboardWidget(QWidget):
         self.series_cat_toggle_btn.setStyleSheet(self.sidebar_toggle_btn.styleSheet())
         self.series_cat_toggle_btn.clicked.connect(self.toggle_series_categories)
         
-        self.series_list_toggle_btn = QPushButton("  TV Series", self)
+        self.series_list_toggle_btn = QPushButton("  Series", self)
         self.series_list_toggle_btn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "list.svg")))
         self.series_list_toggle_btn.setCheckable(True)
         self.series_list_toggle_btn.setChecked(True)
@@ -953,8 +838,8 @@ class DashboardWidget(QWidget):
 
         # Series Player Container
         self.series_player_container = QFrame(self)
-        self.series_player_container.setMinimumHeight(170)
-        self.series_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.series_player_container.setMinimumHeight(240)
+        self.series_player_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.series_player_container.setStyleSheet("background-color: #000000; border-radius: 6px;")
         self.series_player_layout = QVBoxLayout(self.series_player_container)
         self.series_player_layout.setContentsMargins(0, 0, 0, 0)
@@ -985,7 +870,7 @@ class DashboardWidget(QWidget):
         series_text_layout.setSpacing(4)
         series_text_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.series_title_label = QLabel("Select a TV Series", self)
+        self.series_title_label = QLabel("Select a Series", self)
         self.series_title_label.setProperty("class", "pane-title")
         self.series_title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         
@@ -1003,34 +888,29 @@ class DashboardWidget(QWidget):
         
         # Season Selector Combobox
         self.season_combo_label = QLabel("Select Season:", self)
-        self.season_combo_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
         self.season_combo_label.hide()
         self.season_combo = QComboBox(self)
-        self.season_combo.setFixedWidth(220)
         self.season_combo.currentIndexChanged.connect(self.on_season_changed)
         self.season_combo.hide()
         
         # Episodes List
-        self.episodes_list_label = QLabel("TV Episodes:", self)
-        self.episodes_list_label.setStyleSheet("color: #ffffff; font-size: 12px; font-weight: bold;")
+        self.episodes_list_label = QLabel("Episodes:", self)
         self.episodes_list_label.hide()
         self.episodes_list = QListWidget(self)
-        self.episodes_list.setMinimumHeight(150)
-        self.episodes_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.episodes_list.itemClicked.connect(self.play_selected_episode)
+        self.episodes_list.itemDoubleClicked.connect(self.play_selected_episode)
         self.episodes_list.hide()
 
-        self.series_detail_layout.addWidget(self.series_player_container, stretch=3)
+        self.series_detail_layout.addWidget(self.series_player_container, stretch=9)
         self.series_detail_layout.addWidget(self.series_meta_container)
-        self.series_detail_layout.addSpacing(4)
+        self.series_detail_layout.addSpacing(10)
         self.series_detail_layout.addWidget(self.season_combo_label)
         self.series_detail_layout.addWidget(self.season_combo)
-        self.series_detail_layout.addSpacing(2)
+        self.series_detail_layout.addSpacing(10)
         self.series_detail_layout.addWidget(self.episodes_list_label)
-        self.series_detail_layout.addWidget(self.episodes_list, stretch=4)
+        self.series_detail_layout.addWidget(self.episodes_list)
         self.series_spacer = QWidget(self)
         self.series_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.series_detail_layout.addWidget(self.series_spacer, stretch=0)
+        self.series_detail_layout.addWidget(self.series_spacer, stretch=1)
 
         # Center: Categories
         self.series_cat_widget = QWidget(self)
@@ -1077,26 +957,8 @@ class DashboardWidget(QWidget):
         self.series_lists_splitter.addWidget(self.series_cat_widget)
         self.series_lists_splitter.addWidget(self.series_list_widget)
         self.series_lists_splitter.setSizes([215, 215])
-        wrapper_layout.addWidget(self.series_lists_splitter)
 
-        # Bottom load amount bar matching webapp style
-        saved_limit = self.default_batch_limit
-        series_bottom_layout = QHBoxLayout()
-        series_bottom_layout.setContentsMargins(5, 0, 5, 0)
-        series_load_label = QLabel("Load amount:", self)
-        series_load_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
-        
-        self.series_batch_combo = QComboBox(self)
-        self.series_batch_combo.setEditable(True)
-        self.series_batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
-        self.series_batch_combo.setStyleSheet(self.live_batch_combo.styleSheet())
-        self.series_batch_combo.setCurrentText(saved_limit)
-        self.series_batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
-        
-        series_bottom_layout.addStretch()
-        series_bottom_layout.addWidget(series_load_label)
-        series_bottom_layout.addWidget(self.series_batch_combo)
-        wrapper_layout.addLayout(series_bottom_layout)
+        wrapper_layout.addWidget(self.series_lists_splitter)
 
         self.series_splitter.addWidget(self.series_detail_pane)
         self.series_splitter.addWidget(self.series_lists_wrapper)
@@ -1205,37 +1067,8 @@ class DashboardWidget(QWidget):
         batch_label.setFixedWidth(200)
         
         self.batch_combo = QComboBox(card)
-        self.batch_combo.setEditable(True)
-        self.batch_combo.addItems(["50", "100", "200", "500", "1000", "Show All"])
-        self.batch_combo.setStyleSheet("""
-            QComboBox {
-                color: white;
-                background-color: #1e2538;
-                padding: 5px;
-                border: 1px solid #2c354f;
-                border-radius: 4px;
-                min-width: 120px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #10141e;
-                color: white;
-                selection-background-color: #00f0ff;
-                selection-color: black;
-                border: 1px solid #1e2538;
-            }
-            QComboBox:focus {
-                border-color: #00f0ff;
-            }
-            QLineEdit {
-                color: white;
-                background-color: transparent;
-                border: none;
-            }
-        """)
-        
-        saved_limit = self.default_batch_limit
-        self.batch_combo.setCurrentText(saved_limit)
-        self.batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
+        self.batch_combo.addItems(["50 items", "100 items", "200 items", "500 items", "1000 items", "Show All"])
+        self.batch_combo.setStyleSheet("color: white; background-color: #1e2538; padding: 5px; border-radius: 4px; min-width: 120px;")
         
         batch_layout.addWidget(batch_label)
         batch_layout.addWidget(self.batch_combo)
@@ -1326,11 +1159,6 @@ class DashboardWidget(QWidget):
     def show_settings(self):
         self.switch_tab(3)
 
-    def go_home(self, event=None):
-        self.player_widget.stop()
-        self.dock_player_to_live()
-        self.show_live_tv()
-
     def logout(self):
         self.player_widget.stop()
         self.logout_requested.emit()
@@ -1370,23 +1198,14 @@ class DashboardWidget(QWidget):
                 return
                 
             # Add an 'All Channels / Streams' top item
-            if mode == "live":
-                all_text = "All Channels"
-            elif mode == "vod":
-                all_text = "All Movies"
-            elif mode == "series":
-                all_text = "All TV Series"
-            else:
-                all_text = "All Channels"
-
-            all_item = QListWidgetItem(all_text)
+            all_item = QListWidgetItem("🌟 [All Categories]")
             all_item.setData(Qt.ItemDataRole.UserRole, None)
             list_widget.addItem(all_item)
             
             # For Live TV: add virtual Sports category chip (webapp parity)
             if mode == "live":
-                sports_item = QListWidgetItem("🏆 Sport")
-                sports_item.setData(Qt.ItemDataRole.UserRole, "__sport__")
+                sports_item = QListWidgetItem("🏆 Sports")
+                sports_item.setData(Qt.ItemDataRole.UserRole, "__sports__")
                 sports_item.setForeground(QColor("#00f0ff"))
                 sports_item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
                 list_widget.addItem(sports_item)
@@ -1425,135 +1244,29 @@ class DashboardWidget(QWidget):
             self.stream_worker.terminate()
             self.stream_worker.wait()
 
-        if category_id is None:
-            self.stream_worker = FetchStreamsWorker(self.client, mode, None)
+        self.stream_worker = FetchStreamsWorker(self.client, mode, category_id)
 
-            def on_finished(streams):
-                try:
-                    list_widget.setEnabled(True)
-                    list_widget.clear()
-                except RuntimeError:
-                    return # Widget deleted
-
-                # Populate category_name for each stream
-                cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get(mode, []) if "category_id" in cat and "category_name" in cat}
-                for s in streams:
-                    s["category_name"] = cat_map.get(s.get("category_id"), "")
-
-                self.streams_data[mode] = streams
-                self.streams_loaded_count[mode] = 0
-
-                # Cache the loaded streams under None
-                self.streams_cache[mode][None] = streams
-
-                if not streams:
-                    list_widget.addItem("No streams available.")
-                    return
-
-                self.show_more_streams(mode, list_widget)
-
-            self.stream_worker.finished.connect(on_finished)
-            self.stream_worker.start()
-        else:
-            self.stream_worker = FetchStreamsWorker(self.client, mode, category_id)
-
-            def on_finished(streams):
-                try:
-                    list_widget.setEnabled(True)
-                    list_widget.clear()
-                except RuntimeError:
-                    return # Widget deleted, user likely navigated away
-                    
-                cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get(mode, []) if "category_id" in cat and "category_name" in cat}
-                for s in streams:
-                    s["category_name"] = cat_map.get(s.get("category_id"), "")
-                    
-                self.streams_data[mode] = streams
-                self.streams_loaded_count[mode] = 0
-                
-                # Cache the loaded streams
-                self.streams_cache[mode][category_id] = streams
-                
-                if not streams:
-                    list_widget.addItem("No streams available.")
-                    return
-
-                self.show_more_streams(mode, list_widget)
-
-            self.stream_worker.finished.connect(on_finished)
-            self.stream_worker.start()
-
-    def load_next_lazy_category(self, mode, list_widget):
-        categories = self.categories_cache.get(mode, [])
-        idx = self.lazy_cat_index[mode]
-        
-        # If we have run out of categories, finish loading
-        if idx >= len(categories):
-            self.on_lazy_loading_finished(mode, list_widget)
-            return
-            
-        cat = categories[idx]
-        cat_id = cat.get("category_id")
-        
-        # Target size is the currently loaded count in UI plus the batch page size
-        batch_size = self.get_batch_size()
-        target_size = self.streams_loaded_count[mode] + batch_size
-        
-        # Check if this category's streams are already cached
-        if cat_id in self.streams_cache[mode]:
-            streams = self.streams_cache[mode][cat_id]
-            self.streams_data[mode].extend(streams)
-            self.lazy_cat_index[mode] += 1
-            
-            # Check if we have loaded enough channels
-            if len(self.streams_data[mode]) >= target_size:
-                self.on_lazy_loading_finished(mode, list_widget)
-            else:
-                self.load_next_lazy_category(mode, list_widget)
-            return
-
-        # Fetch from server
-        self.stream_worker = FetchStreamsWorker(self.client, mode, cat_id)
-        
         def on_finished(streams):
             try:
-                cat_name = cat.get("category_name", "")
-                for s in streams:
-                    s["category_name"] = cat_name
-                # Cache the loaded streams
-                self.streams_cache[mode][cat_id] = streams
-                self.streams_data[mode].extend(streams)
-                self.lazy_cat_index[mode] += 1
-                
-                if len(self.streams_data[mode]) >= target_size or self.lazy_cat_index[mode] >= len(categories):
-                    self.on_lazy_loading_finished(mode, list_widget)
-                else:
-                    self.load_next_lazy_category(mode, list_widget)
+                list_widget.setEnabled(True)
+                list_widget.clear()
             except RuntimeError:
-                return # Widget deleted
+                return # Widget deleted, user likely navigated away
                 
+            self.streams_data[mode] = streams
+            self.streams_loaded_count[mode] = 0
+            
+            # Cache the loaded streams
+            self.streams_cache[mode][category_id] = streams
+            
+            if not streams:
+                list_widget.addItem("No streams available.")
+                return
+
+            self.show_more_streams(mode, list_widget)
+
         self.stream_worker.finished.connect(on_finished)
         self.stream_worker.start()
-
-    def on_lazy_loading_finished(self, mode, list_widget):
-        try:
-            list_widget.setEnabled(True)
-            if list_widget.count() > 0:
-                last_item = list_widget.item(list_widget.count() - 1)
-                if last_item.data(Qt.ItemDataRole.UserRole + 2) == "load_more" or last_item.text().startswith("⏳") or last_item.text().startswith("Loading"):
-                    list_widget.takeItem(list_widget.count() - 1)
-        except RuntimeError:
-            return
-            
-        streams = self.streams_data[mode]
-        # Cache the current accumulated list under None (All Categories)
-        self.streams_cache[mode][None] = streams
-        
-        if not streams and list_widget.count() == 0:
-            list_widget.addItem("No streams available.")
-            return
-            
-        self.show_more_streams(mode, list_widget)
 
     # --- Live TV Event Handlers ---
 
@@ -1563,12 +1276,12 @@ class DashboardWidget(QWidget):
         item = self.live_cat_list.currentItem()
         category_id = item.data(Qt.ItemDataRole.UserRole)
         
-        if category_id == "__sport__":
-            self.load_sport_streams(keywords=["sport", "esporte", "desporto", "liga", "futbol", "football", "nfl", "nba", "mlb", "nhl", "ufc", "mma", "racing"])
+        if category_id == "__sports__":
+            self.load_sports_streams(keywords=["sport", "esporte", "desporto", "liga", "futbol", "football", "nfl", "nba", "mlb", "nhl", "ufc", "mma", "racing"])
         else:
             self.load_streams("live", category_id, self.live_channel_list)
     
-    def load_sport_streams(self, keywords):
+    def load_sports_streams(self, keywords):
         """Fetch all live streams, then filter client-side by sport-related keywords."""
         self.live_channel_list.clear()
         
@@ -1584,7 +1297,7 @@ class DashboardWidget(QWidget):
                 )
             ]
             if not matched:
-                self.live_channel_list.addItem("No sport channels found.")
+                self.live_channel_list.addItem("No sports channels found.")
                 return
                 
             self.streams_data["live"] = matched
@@ -1592,27 +1305,20 @@ class DashboardWidget(QWidget):
             self.show_more_streams("live", self.live_channel_list)
             return
 
-        self.live_channel_list.addItem("Loading sport channels...")
+        self.live_channel_list.addItem("Loading sports channels...")
         self.live_channel_list.setEnabled(False)
         
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.terminate()
             self.stream_worker.wait()
         
-        # Match the webapp: fetch all live streams directly, then filter locally.
+        # Fetch all streams (no category_id = all)
         self.stream_worker = FetchStreamsWorker(self.client, "live", None)
         
         def on_finished(streams):
-            try:
-                self.live_channel_list.setEnabled(True)
-                self.live_channel_list.clear()
-            except RuntimeError:
-                return
-                
-            cat_map = {cat["category_id"]: cat["category_name"] for cat in self.categories_cache.get("live", []) if "category_id" in cat and "category_name" in cat}
-            for s in streams:
-                s["category_name"] = cat_map.get(s.get("category_id"), "")
-
+            self.live_channel_list.setEnabled(True)
+            self.live_channel_list.clear()
+            
             # Cache the loaded streams
             self.streams_cache["live"][None] = streams
             
@@ -1626,7 +1332,7 @@ class DashboardWidget(QWidget):
             ]
             
             if not matched:
-                self.live_channel_list.addItem("No sport channels found.")
+                self.live_channel_list.addItem("No sports channels found.")
                 return
             
             self.streams_data["live"] = matched
@@ -1737,11 +1443,8 @@ class DashboardWidget(QWidget):
             return
             
         series_id = series_data["series_id"]
-        self.series_title_label.setText(series_data.get("name", "Unknown TV Series"))
-        self.series_title_label.show()
+        self.series_title_label.setText(series_data.get("name", "Unknown Series"))
         self.series_desc_label.setText(series_data.get("plot", "No description available."))
-        self.series_desc_label.show()
-        self.series_logo_label.show()
         self.load_logo_image(series_data.get("cover", ""), self.series_logo_label, "🍿")
         
         # Load seasons and episodes in background
@@ -1769,44 +1472,28 @@ class DashboardWidget(QWidget):
             seasons = info_data.get("seasons", [])
             episodes = info_data.get("episodes", {})
             
-            if not episodes:
-                self.episodes_list.addItem("No episodes available for this TV series.")
+            if not seasons or not episodes:
+                self.episodes_list.addItem("No episodes available for this series.")
                 return
-
-            self.populate_series_episode_browser(seasons, episodes)
+                
+            # Store full episodes dictionary on the combo box
+            self.season_combo.setProperty("episodes", episodes)
+            
+            # Populate Season combo box
+            self.season_combo.currentIndexChanged.disconnect(self.on_season_changed)
+            for season in seasons:
+                name = season.get("name", f"Season {season.get('season_number')}")
+                num = season.get("season_number")
+                self.season_combo.addItem(name, num)
+            self.season_combo.currentIndexChanged.connect(self.on_season_changed)
+            
+            # Show combo and trigger first load
+            self.season_combo_label.show()
+            self.season_combo.show()
+            self.on_season_changed(0)
 
         self.series_info_worker.finished.connect(on_finished)
         self.series_info_worker.start()
-
-    def populate_series_episode_browser(self, seasons, episodes):
-        season_names = {}
-        for season in seasons or []:
-            season_num = season.get("season_number")
-            if season_num is not None:
-                season_names[str(season_num)] = season.get("name") or f"Season {season_num}"
-
-        def season_sort_key(value):
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                return 9999
-
-        for season_num in sorted(episodes.keys(), key=season_sort_key):
-            season_title = season_names.get(str(season_num), f"Season {season_num}")
-            header = QListWidgetItem(season_title)
-            header.setData(Qt.ItemDataRole.UserRole, None)
-            header.setFlags(header.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            header.setForeground(QColor("#00f0ff"))
-            header.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            self.episodes_list.addItem(header)
-
-            for ep in episodes.get(season_num, []):
-                episode_num = ep.get("episode_num", "")
-                title = ep.get("title", "Unknown Episode")
-                item = QListWidgetItem(f"  E{episode_num}  {title}")
-                item.setData(Qt.ItemDataRole.UserRole, ep)
-                item.setToolTip(title)
-                self.episodes_list.addItem(item)
 
     def on_season_changed(self, index):
         if index < 0:
@@ -1841,9 +1528,6 @@ class DashboardWidget(QWidget):
         ep_id = ep_data["id"]
         ep_name = ep_data.get("title", "Episode")
         container_ext = ep_data.get("container_extension", "mp4")
-        self.series_logo_label.hide()
-        self.series_title_label.hide()
-        self.series_desc_label.hide()
         
         # Build stream URL
         stream_url = self.client.get_series_stream_url(ep_id, container_ext)
@@ -1861,7 +1545,6 @@ class DashboardWidget(QWidget):
         self.mini_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "live"
         self.player_widget.full_program_btn.setChecked(False)
-        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Live TV Panel")
 
@@ -1872,7 +1555,6 @@ class DashboardWidget(QWidget):
         self.movie_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "movie"
         self.player_widget.full_program_btn.setChecked(False)
-        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Movie Details Panel")
 
@@ -1883,7 +1565,6 @@ class DashboardWidget(QWidget):
         self.series_player_layout.addWidget(self.player_widget)
         self.player_dock_state = "series"
         self.player_widget.full_program_btn.setChecked(False)
-        self.player_widget.update_full_program_button()
         self.on_player_full_program_changed(False)
         logging.info("VLC Player: Docked to Series Details Panel")
 
@@ -2167,19 +1848,10 @@ class DashboardWidget(QWidget):
             if last_item.data(Qt.ItemDataRole.UserRole + 2) == "load_more":
                 list_widget.takeItem(list_widget.count() - 1)
 
-        # Get active category ID
-        active_cat_id = None
-        if mode == "live":
-            active_cat_id = self.live_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.live_cat_list.currentItem() else None
-        elif mode == "vod":
-            active_cat_id = self.movie_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.movie_cat_list.currentItem() else None
-        elif mode == "series":
-            active_cat_id = self.series_cat_list.currentItem().data(Qt.ItemDataRole.UserRole) if self.series_cat_list.currentItem() else None
-
         all_streams = self.streams_data.get(mode, [])
         current_count = self.streams_loaded_count.get(mode, 0)
-        PAGE_SIZE = self.get_batch_size()
-
+        
+        PAGE_SIZE = 50
         next_count = min(len(all_streams), current_count + PAGE_SIZE)
         
         for i in range(current_count, next_count):
@@ -2200,15 +1872,13 @@ class DashboardWidget(QWidget):
             
         self.streams_loaded_count[mode] = next_count
         
-        # Determine if we should show 'Load More'
         if next_count < len(all_streams):
-            remaining = len(all_streams) - next_count
-            label_text = f"➕ Load More ({remaining} remaining)"
-            more_item = QListWidgetItem(label_text)
+            more_item = QListWidgetItem("➕ Load More Items...")
             more_item.setData(Qt.ItemDataRole.UserRole + 2, "load_more")
             more_item.setForeground(QColor("#00f0ff"))
             more_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             list_widget.addItem(more_item)
+            
         QTimer.singleShot(50, lambda: self.load_visible_icons(list_widget))
 
     def filter_list_items(self, mode, query, list_widget):
