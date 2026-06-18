@@ -27,6 +27,7 @@ class DashboardWidget(QWidget):
         self.live_batch_combo = None
         self.movie_batch_combo = None
         self.series_batch_combo = None
+        self.default_batch_limit = "50"
         self.client = client
         self.player_widget = PlayerWidget(self)
         self.player_widget.full_program_state_changed.connect(self.on_player_full_program_changed)
@@ -56,7 +57,6 @@ class DashboardWidget(QWidget):
         self.show_live_tv()
 
     def on_batch_limit_changed(self, text):
-        self.settings.setValue("batch_limit", text)
         for combo in [self.batch_combo, self.live_batch_combo, self.movie_batch_combo, self.series_batch_combo]:
             if combo is not None and combo.currentText() != text:
                 combo.blockSignals(True)
@@ -647,7 +647,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.live_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = str(self.settings.value("batch_limit", "50"))
+        saved_limit = self.default_batch_limit
         bottom_layout = QHBoxLayout()
         bottom_layout.setContentsMargins(5, 0, 5, 0)
         load_label = QLabel("Load amount:", self)
@@ -865,7 +865,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.movie_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = str(self.settings.value("batch_limit", "50"))
+        saved_limit = self.default_batch_limit
         movie_bottom_layout = QHBoxLayout()
         movie_bottom_layout.setContentsMargins(5, 0, 5, 0)
         movie_load_label = QLabel("Load amount:", self)
@@ -1066,7 +1066,7 @@ class DashboardWidget(QWidget):
         wrapper_layout.addWidget(self.series_lists_splitter)
 
         # Bottom load amount bar matching webapp style
-        saved_limit = str(self.settings.value("batch_limit", "50"))
+        saved_limit = self.default_batch_limit
         series_bottom_layout = QHBoxLayout()
         series_bottom_layout.setContentsMargins(5, 0, 5, 0)
         series_load_label = QLabel("Load amount:", self)
@@ -1219,7 +1219,7 @@ class DashboardWidget(QWidget):
             }
         """)
         
-        saved_limit = str(self.settings.value("batch_limit", "50"))
+        saved_limit = self.default_batch_limit
         self.batch_combo.setCurrentText(saved_limit)
         self.batch_combo.currentTextChanged.connect(self.on_batch_limit_changed)
         
