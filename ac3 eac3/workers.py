@@ -204,5 +204,3 @@ class AdminSaveWorker(QThread):
             self.finished.emit(False, msg)
         except Exception as e:
             self.finished.emit(False, f"Connection error: {str(e)}")
-
-

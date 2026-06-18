@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 
 from login_widget import LoginWidget
 from dashboard_widget import DashboardWidget
@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
         import os
         icon_path = os.path.join(os.path.dirname(__file__), "favicon.png")
         self.setWindowIcon(QIcon(icon_path))
-        self.resize(1100, 700)
+        self.resize(1200, 700)
         
         # Central Stacked Widget
         self.stacked_widget = QStackedWidget(self)
@@ -31,10 +31,20 @@ class MainWindow(QMainWindow):
         self.dashboard_widget = None
         
         self.apply_theme()
+        self.close_shortcut = QShortcut(QKeySequence("Ctrl+W"), self)
+        self.close_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.close_shortcut.activated.connect(self.close)
 
     def apply_theme(self):
         # Apply clean dark styling globally
         self.setStyleSheet("""
+            QToolTip {
+                background-color: #1a1a24;
+                color: #ffffff;
+                border: 1px solid #2c2c38;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }
             QMainWindow {
                 background-color: #07090e;
             }

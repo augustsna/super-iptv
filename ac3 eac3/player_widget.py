@@ -4,9 +4,10 @@ import vlc
 import logging
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QSlider, QLabel, QMenu, QSizePolicy, QStyle, QGraphicsOpacityEffect
+    QSlider, QLabel, QMenu, QSizePolicy, QStyle, QGraphicsOpacityEffect,
+    QFileDialog
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint, QPropertyAnimation
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent, QPoint, QPropertyAnimation, QUrl, QSettings, QSize
 from PyQt6.QtGui import QColor, QPalette, QIcon, QAction, QCursor, QGuiApplication
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -37,7 +38,14 @@ class PlayerWidget(QWidget):
         self.normal_geometry = None
         self.normal_parent = None
         
-        self.prev_volume = 70
+        # Settings & Volume Persistence
+        self.settings = QSettings("XtreamPlayer", "PlayerSettings")
+        saved_volume = self.settings.value("volume", 100)
+        try:
+            self.volume = int(saved_volume)
+        except (ValueError, TypeError):
+            self.volume = 100
+        self.prev_volume = self.volume if self.volume > 0 else 100
         self.controls_visible = True
         self.settings_menu_open = False
         
@@ -133,68 +141,104 @@ class PlayerWidget(QWidget):
         self.buttons_layout.setSpacing(8)
 
         # Play/Pause Circle Button
-        self.play_btn = QPushButton("▶", self.controls_panel)
+        self.play_btn = QPushButton(self.controls_panel)
         self.play_btn.setObjectName("play_btn")
         self.play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.play_btn.clicked.connect(self.toggle_play)
+        self.play_btn.setIcon(self.get_icon("play.svg"))
+        self.play_btn.setIconSize(QSize(16, 16))
         self.buttons_layout.addWidget(self.play_btn)
 
         # Stop Button
-        self.stop_btn = QPushButton("⏹", self.controls_panel)
+        self.stop_btn = QPushButton(self.controls_panel)
         self.stop_btn.setObjectName("stop_btn")
         self.stop_btn.setToolTip("Stop")
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_btn.clicked.connect(self.stop)
+        self.stop_btn.setIcon(self.get_icon("stop.svg"))
+        self.stop_btn.setIconSize(QSize(16, 16))
         self.buttons_layout.addWidget(self.stop_btn)
 
+        # Reload Button
+        self.reload_btn = QPushButton(self.controls_panel)
+        self.reload_btn.setObjectName("reload_btn")
+        self.reload_btn.setToolTip("Reload Stream")
+        self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.reload_btn.clicked.connect(self.reload_stream)
+        self.reload_btn.setIcon(self.get_icon("refresh-cw.svg"))
+        self.reload_btn.setIconSize(QSize(16, 16))
+        self.buttons_layout.addWidget(self.reload_btn)
+
         # Mute / Volume Toggle Button
-        self.volume_btn = QPushButton("🔊", self.controls_panel)
+        self.volume_btn = QPushButton(self.controls_panel)
         self.volume_btn.setObjectName("volume_btn")
         self.volume_btn.setToolTip("Mute/Unmute")
         self.volume_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.volume_btn.clicked.connect(self.toggle_mute)
+        self.volume_btn.setIconSize(QSize(16, 16))
+        # Initial speaker icon
+        if self.volume == 0:
+            self.volume_btn.setIcon(self.get_icon("volume-x.svg"))
+        elif self.volume <= 33:
+            self.volume_btn.setIcon(self.get_icon("volume.svg"))
+        elif self.volume <= 66:
+            self.volume_btn.setIcon(self.get_icon("volume-1.svg"))
+        else:
+            self.volume_btn.setIcon(self.get_icon("volume-2.svg"))
         self.buttons_layout.addWidget(self.volume_btn)
 
         # Volume Slider
         self.volume_slider = QSlider(Qt.Orientation.Horizontal, self.controls_panel)
         self.volume_slider.setRange(0, 100)
-        self.volume_slider.setValue(70)
+        self.volume_slider.setValue(self.volume)
         self.volume_slider.setFixedWidth(80)
         self.volume_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.volume_slider.valueChanged.connect(self.set_volume)
-        self.media_player.audio_set_volume(70) # Init volume in VLC
-        
-        self.volume_label = QLabel("70%", self.controls_panel)
-        self.volume_label.setStyleSheet("color: #8f8f9e; font-weight: bold; min-width: 32px;")
+        self.media_player.audio_set_volume(self.volume) # Init volume in VLC
         
         self.buttons_layout.addWidget(self.volume_slider)
-        self.buttons_layout.addWidget(self.volume_label)
 
         # Spacer
         self.buttons_layout.addStretch()
 
+        # CC Button
+        self.cc_btn = QPushButton(self.controls_panel)
+        self.cc_btn.setObjectName("cc_btn")
+        self.cc_btn.setToolTip("Closed Captions / Subtitles")
+        self.cc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cc_btn.clicked.connect(self.show_cc_menu)
+        self.cc_btn.setIcon(self.get_icon("subtitles.svg"))
+        self.cc_btn.setIconSize(QSize(16, 16))
+        self.buttons_layout.addWidget(self.cc_btn)
+
         # Settings Gear Menu
-        self.settings_btn = QPushButton("⚙", self.controls_panel)
+        self.settings_btn = QPushButton(self.controls_panel)
         self.settings_btn.setObjectName("settings_btn")
         self.settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.settings_btn.clicked.connect(self.show_settings_menu)
+        self.settings_btn.setIcon(self.get_icon("settings.svg"))
+        self.settings_btn.setIconSize(QSize(16, 16))
         self.buttons_layout.addWidget(self.settings_btn)
 
         # Full Program Size Button
-        self.full_program_btn = QPushButton("⧉", self.controls_panel)
+        self.full_program_btn = QPushButton(self.controls_panel)
         self.full_program_btn.setObjectName("full_program_btn")
         self.full_program_btn.setToolTip("Toggle Full Window Size")
         self.full_program_btn.setCheckable(True)
         self.full_program_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.full_program_btn.clicked.connect(self.toggle_full_program)
+        self.full_program_btn.setIconSize(QSize(16, 16))
+        self.update_full_program_button()
         self.buttons_layout.addWidget(self.full_program_btn)
 
         # Fullscreen Button
-        self.fullscreen_btn = QPushButton("⛶", self.controls_panel)
+        self.fullscreen_btn = QPushButton(self.controls_panel)
         self.fullscreen_btn.setObjectName("fullscreen_btn")
-        self.fullscreen_btn.setToolTip("Fullscreen")
+        self.fullscreen_btn.setToolTip("Toggle Fullscreen")
         self.fullscreen_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.fullscreen_btn.clicked.connect(self.toggle_fullscreen)
+        self.fullscreen_btn.setIcon(self.get_icon("maximize.svg"))
+        self.fullscreen_btn.setIconSize(QSize(16, 16))
         self.buttons_layout.addWidget(self.fullscreen_btn)
 
         self.controls_layout.addLayout(self.buttons_layout)
@@ -295,7 +339,14 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn {{
+            QToolTip {{
+                background-color: #121215;
+                color: #ffffff;
+                border: 1px solid #2a2a35;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }}
+            #play_btn, #stop_btn, #reload_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn, #cc_btn {{
                 min-width: 34px;
                 max-width: 34px;
                 min-height: 34px;
@@ -303,6 +354,14 @@ class PlayerWidget(QWidget):
                 border-radius: 6px;
                 font-size: 16px;
                 padding: 0px;
+            }}
+            #cc_btn {{
+                font-size: 12px;
+            }}
+            #cc_btn[active="true"] {{
+                color: #00f0ff;
+                border-color: #00f0ff;
+                background-color: rgba(108, 92, 231, 0.2);
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
@@ -385,7 +444,7 @@ class PlayerWidget(QWidget):
             
         self.media_player.play()
         self.timer.start()
-        self.play_btn.setText("⏸")
+        self.play_btn.setIcon(self.get_icon("pause.svg"))
         self.playback_state_changed.emit("playing")
         
         # Focus on player widget so keyboard shortcuts work immediately
@@ -395,7 +454,7 @@ class PlayerWidget(QWidget):
         state = self.media_player.get_state()
         if state == vlc.State.Playing:
             self.media_player.pause()
-            self.play_btn.setText("▶")
+            self.play_btn.setIcon(self.get_icon("play.svg"))
             self.playback_state_changed.emit("paused")
             self.show_controls()
         else:
@@ -407,7 +466,7 @@ class PlayerWidget(QWidget):
         self.hide_timer.stop()
         self.slider.setValue(0)
         self.time_label.setText("00:00:00 / 00:00:00")
-        self.play_btn.setText("▶")
+        self.play_btn.setIcon(self.get_icon("play.svg"))
         self.playback_state_changed.emit("stopped")
         self.tracks_loaded = False
         self.badges_loaded = False
@@ -415,18 +474,31 @@ class PlayerWidget(QWidget):
         self.clear_badges()
         self.loading_overlay.hide()
         self.show_controls()
+        
+        # Reset CC button active state
+        if hasattr(self, 'cc_btn'):
+            self.cc_btn.setProperty("active", "false")
+            self.cc_btn.style().unpolish(self.cc_btn)
+            self.cc_btn.style().polish(self.cc_btn)
+
+    def reload_stream(self):
+        if self.stream_url:
+            logging.info("VLC Player: Reloading stream...")
+            current_title = self.title_label.text()
+            self.stop()
+            self.play(self.stream_url, current_title)
 
     def set_volume(self, value):
         self.media_player.audio_set_volume(value)
-        self.volume_label.setText(f"{value}%")
         if value == 0:
-            self.volume_btn.setText("🔇")
+            self.volume_btn.setIcon(self.get_icon("volume-x.svg"))
         elif value <= 33:
-            self.volume_btn.setText("🔈")
+            self.volume_btn.setIcon(self.get_icon("volume.svg"))
         elif value <= 66:
-            self.volume_btn.setText("🔉")
+            self.volume_btn.setIcon(self.get_icon("volume-1.svg"))
         else:
-            self.volume_btn.setText("🔊")
+            self.volume_btn.setIcon(self.get_icon("volume-2.svg"))
+        self.settings.setValue("volume", value)
 
     def toggle_mute(self):
         if self.media_player.audio_get_mute():
@@ -435,10 +507,12 @@ class PlayerWidget(QWidget):
             self.set_volume(self.prev_volume)
         else:
             self.prev_volume = self.volume_slider.value()
+            if self.prev_volume == 0:
+                self.prev_volume = 100
             self.media_player.audio_set_mute(True)
             self.volume_slider.setValue(0)
-            self.volume_btn.setText("🔇")
-            self.volume_label.setText("0%")
+            self.volume_btn.setIcon(self.get_icon("volume-x.svg"))
+            self.settings.setValue("volume", 0)
 
     def format_time(self, ms):
         seconds = int((ms / 1000) % 60)
@@ -477,6 +551,9 @@ class PlayerWidget(QWidget):
             if not self.badges_loaded or self.badge_update_count < 30:
                 self.update_meta_badges()
                 self.badge_update_count += 1
+
+            # Update CC button state dynamically
+            self.update_cc_button_state()
         elif state in (vlc.State.Opening, vlc.State.Buffering):
             self.loading_overlay.show()
             self.loading_overlay.setGeometry(0, 0, self.video_frame.width(), self.video_frame.height())
@@ -545,10 +622,19 @@ class PlayerWidget(QWidget):
                         elif "mpga" in c_lower or "mp3" in c_lower: codec_str = "MP3"
                         else: codec_str = codec_str.upper()
                         
-                        # Python-vlc track.type can be an int (1=audio, 2=video) or Enum
-                        if track.type == getattr(vlc.TrackType, 'video', 2) or track.type == 2:
+                        # Identify track types: audio=0, video=1, text=2
+                        is_video = False
+                        is_audio = False
+                        try:
+                            is_video = (track.type == vlc.TrackType.video)
+                            is_audio = (track.type == vlc.TrackType.audio)
+                        except AttributeError:
+                            is_video = (track.type == 1)
+                            is_audio = (track.type == 0)
+
+                        if is_video:
                             badges.append((codec_str, "#00f0ff"))
-                        elif track.type == getattr(vlc.TrackType, 'audio', 1) or track.type == 1:
+                        elif is_audio:
                             try:
                                 channels = track.audio.contents.channels
                             except Exception:
@@ -561,19 +647,23 @@ class PlayerWidget(QWidget):
         for text, color in badges:
             lbl = QLabel(text)
             if color == "#ff4757":
-                border_style = "1px solid rgba(255, 71, 87, 0.3)"
-                bg_style = "background: rgba(255, 71, 87, 0.1);"
+                border_style = "1px solid rgba(255, 71, 87, 0.5)"
+                bg_style = "background: rgba(255, 71, 87, 0.15);"
                 text_color = color
+            elif color == "#00f0ff":
+                border_style = "1px solid rgba(0, 240, 255, 0.4)"
+                bg_style = "background: rgba(0, 240, 255, 0.08);"
+                text_color = "#00f0ff"
             else:
-                border_style = "1px solid rgba(255, 255, 255, 0.08)"
-                bg_style = "background: rgba(255, 255, 255, 0.05);"
-                text_color = "#d1d5db" # Grayish white
+                border_style = "1px solid rgba(255, 255, 255, 0.2)"
+                bg_style = "background: rgba(255, 255, 255, 0.08);"
+                text_color = "#e0e0e2"
                 
             lbl.setStyleSheet(f"""
                 color: {text_color}; 
                 border: {border_style}; 
-                border-radius: 3px; 
-                padding: 1px 4px; 
+                border-radius: 4px; 
+                padding: 1px 6px; 
                 font-weight: bold; 
                 font-size: 9px; 
                 {bg_style}
@@ -662,6 +752,113 @@ class PlayerWidget(QWidget):
         if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
             self.hide_timer.start()
 
+    def show_cc_menu(self):
+        self.hide_timer.stop()
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #121215;
+                color: #ffffff;
+                border: 1px solid #2a2a35;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 24px;
+                border-radius: 4px;
+                color: #e0e0e0;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 11px;
+            }
+            QMenu::item:selected {
+                background-color: #6c5ce7;
+                color: #ffffff;
+            }
+            QMenu::item:checked {
+                font-weight: bold;
+                color: #00f0ff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #2a2a35;
+                margin: 4px 8px;
+            }
+        """)
+
+        header = menu.addAction("Closed Captions")
+        header.setEnabled(False)
+        menu.addSeparator()
+
+        tracks = self.media_player.video_get_spu_description()
+        active_track = self.media_player.video_get_spu()
+
+        off_action = menu.addAction("Off")
+        off_action.setCheckable(True)
+        off_action.setChecked(active_track == -1)
+        off_action.triggered.connect(lambda: self.select_cc_track(-1))
+
+        if tracks:
+            for track_id, track_name_bytes in tracks:
+                if track_id == -1:
+                    continue
+                track_name = track_name_bytes.decode('utf-8', errors='ignore')
+                action = menu.addAction(track_name)
+                action.setCheckable(True)
+                action.setChecked(track_id == active_track)
+                action.triggered.connect(lambda checked, t_id=track_id: self.select_cc_track(t_id))
+
+        menu.addSeparator()
+        upload_action = menu.addAction("📂 Upload Local Subtitles (.srt)...")
+        upload_action.triggered.connect(self.upload_local_srt)
+
+        button_pos = self.cc_btn.mapToGlobal(QPoint(0, 0))
+        menu_size = menu.sizeHint()
+        menu_x = button_pos.x() + (self.cc_btn.width() - menu_size.width()) // 2
+        menu_y = button_pos.y() - menu_size.height() - 6
+
+        menu.exec(QPoint(menu_x, menu_y))
+
+    def upload_local_srt(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Upload Subtitles", 
+            "", 
+            "Subtitle Files (*.srt *.vtt *.sub);;All Files (*)"
+        )
+        if file_path:
+            file_path = os.path.normpath(file_path)
+            logging.info(f"VLC Player: Loading local subtitle file: {file_path}")
+            success = self.media_player.video_set_subtitle_file(file_path)
+            if success:
+                logging.info("VLC Player: Local subtitles loaded successfully.")
+                QTimer.singleShot(500, self.update_cc_button_state)
+            else:
+                logging.warning("VLC Player: video_set_subtitle_file returned False, trying add_slave...")
+                try:
+                    file_url = QUrl.fromLocalFile(file_path).toString()
+                    # In python-vlc, MediaSlaveType.subtitle is 0
+                    slave_success = self.media_player.add_slave(0, file_url, True)
+                    logging.info(f"VLC Player: add_slave result: {slave_success}")
+                    QTimer.singleShot(500, self.update_cc_button_state)
+                except Exception as e:
+                    logging.error(f"VLC Player: Failed to add subtitle slave: {e}")
+
+        if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
+            self.hide_timer.start()
+
+    def select_cc_track(self, track_id):
+        logging.info(f"VLC Player: Select closed caption track ID={track_id}")
+        self.media_player.video_set_spu(track_id)
+        self.update_cc_button_state()
+
+    def update_cc_button_state(self):
+        active_track = self.media_player.video_get_spu()
+        is_active = (active_track != -1)
+        self.cc_btn.setProperty("active", "true" if is_active else "false")
+        self.cc_btn.style().unpolish(self.cc_btn)
+        self.cc_btn.style().polish(self.cc_btn)
+
     def select_audio_track(self, track_id):
         logging.info(f"VLC Player: Select audio track ID={track_id}")
         self.media_player.audio_set_track(track_id)
@@ -722,7 +919,7 @@ class PlayerWidget(QWidget):
                 self.move(target_screen.geometry().topLeft())
                 
             self.showFullScreen()
-            self.fullscreen_btn.setText("🗗")
+            self.fullscreen_btn.setIcon(self.get_icon("minimize.svg"))
             self.fullscreen_btn.setToolTip("Exit Fullscreen")
             self.fullscreen_mode = True
         else:
@@ -735,8 +932,8 @@ class PlayerWidget(QWidget):
                 self.setWindowFlags(Qt.WindowType.Widget)
             self.showNormal()
             self.setGeometry(self.normal_geometry)
-            self.fullscreen_btn.setText("⛶")
-            self.fullscreen_btn.setToolTip("Fullscreen")
+            self.fullscreen_btn.setIcon(self.get_icon("maximize.svg"))
+            self.fullscreen_btn.setToolTip("Toggle Fullscreen")
             self.fullscreen_mode = False
         
         self.update_styles()
@@ -912,7 +1109,22 @@ class PlayerWidget(QWidget):
 
     def toggle_full_program(self):
         is_full = self.full_program_btn.isChecked()
+        self.update_full_program_button()
         self.full_program_state_changed.emit(is_full)
+
+    def update_full_program_button(self):
+        is_full = self.full_program_btn.isChecked()
+        if is_full:
+            self.full_program_btn.setIcon(self.get_icon("minimize-2.svg"))
+            self.full_program_btn.setToolTip("Exit Full Window Size")
+        else:
+            self.full_program_btn.setIcon(self.get_icon("maximize-2.svg"))
+            self.full_program_btn.setToolTip("Toggle Full Window Size")
+
+    def get_icon(self, name):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, "icons", name)
+        return QIcon(path)
 
     def closeEvent(self, event):
         self.stop()
