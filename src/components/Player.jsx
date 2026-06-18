@@ -398,6 +398,34 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     };
   }, [showStats, isPlaying]);
 
+  const syncTextTracks = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const textTracks = Array.from(video.textTracks || []);
+    const validTracks = textTracks.filter(
+      track => track.kind === 'subtitles' || track.kind === 'captions'
+    );
+
+    const tracksList = validTracks.map((track, index) => ({
+      id: index,
+      label: track.label || track.language || `c608 #${index + 1}`,
+      language: track.language,
+      kind: track.kind,
+      originalTrack: track,
+      active: track.mode === 'showing'
+    }));
+
+    setTracks(prev => {
+      const isSame = prev.length === tracksList.length &&
+        prev.every((t, i) => t.label === tracksList[i].label && t.active === tracksList[i].active);
+      return isSame ? prev : tracksList;
+    });
+
+    const activeIdx = tracksList.findIndex(t => t.active);
+    setActiveTrackIndex(activeIdx);
+  };
+
   // Update video badges dynamically
   useEffect(() => {
     let intervalId;
@@ -432,6 +460,8 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
           fps: estimatedFps > 0 ? `${estimatedFps} fps` : prev.fps || '30 fps',
           resolution: resLabel || prev.resolution,
         }));
+
+        syncTextTracks();
       }, 2000);
     }
     return () => {
@@ -603,39 +633,17 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTracksChange = () => {
-      const textTracks = Array.from(video.textTracks || []);
-      const validTracks = textTracks.filter(
-        track => track.kind === 'subtitles' || track.kind === 'captions'
-      );
-
-      const tracksList = validTracks.map((track, index) => ({
-        id: index,
-        label: track.label || track.language || `c608 #${index + 1}`,
-        language: track.language,
-        kind: track.kind,
-        originalTrack: track,
-        active: track.mode === 'showing'
-      }));
-
-      setTracks(tracksList);
-
-      const activeIdx = tracksList.findIndex(t => t.active);
-      setActiveTrackIndex(activeIdx);
-    };
-
     const textTracksList = video.textTracks;
     if (textTracksList) {
-      textTracksList.addEventListener('addtrack', handleTracksChange);
-      textTracksList.addEventListener('removetrack', handleTracksChange);
-      // Run once initially
-      handleTracksChange();
+      textTracksList.addEventListener('addtrack', syncTextTracks);
+      textTracksList.addEventListener('removetrack', syncTextTracks);
+      syncTextTracks();
     }
 
     return () => {
       if (textTracksList) {
-        textTracksList.removeEventListener('addtrack', handleTracksChange);
-        textTracksList.removeEventListener('removetrack', handleTracksChange);
+        textTracksList.removeEventListener('addtrack', syncTextTracks);
+        textTracksList.removeEventListener('removetrack', syncTextTracks);
       }
     };
   }, [channel, isPlaying]);
@@ -901,7 +909,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {tracks.length > 0 && (
+                    {isPlaying && (
                       <div className="cc-control-container">
                         <button 
                           className={`control-btn ${activeTrackIndex !== -1 ? 'active' : ''}`} 
@@ -914,23 +922,31 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                         {showTrackMenu && (
                           <div className="cc-dropdown-menu text-digital">
                             <div className="cc-dropdown-header">Captions</div>
-                            <button 
-                              className={`cc-dropdown-item ${activeTrackIndex === -1 ? 'active' : ''}`}
-                              onClick={() => selectTrack(-1)}
-                            >
-                              <span>Off</span>
-                              {activeTrackIndex === -1 && <span className="cc-check">✓</span>}
-                            </button>
-                            {tracks.map((track) => (
-                              <button 
-                                key={track.id}
-                                className={`cc-dropdown-item ${activeTrackIndex === track.id ? 'active' : ''}`}
-                                onClick={() => selectTrack(track.id)}
-                              >
-                                <span>{track.label}</span>
-                                {activeTrackIndex === track.id && <span className="cc-check">✓</span>}
-                              </button>
-                            ))}
+                            {tracks.length === 0 ? (
+                              <div className="cc-dropdown-item disabled" style={{ opacity: 0.5, cursor: 'default', pointerEvents: 'none' }}>
+                                None Available
+                              </div>
+                            ) : (
+                              <>
+                                <button 
+                                  className={`cc-dropdown-item ${activeTrackIndex === -1 ? 'active' : ''}`}
+                                  onClick={() => selectTrack(-1)}
+                                >
+                                  <span>Off</span>
+                                  {activeTrackIndex === -1 && <span className="cc-check">✓</span>}
+                                </button>
+                                {tracks.map((track) => (
+                                  <button 
+                                    key={track.id}
+                                    className={`cc-dropdown-item ${activeTrackIndex === track.id ? 'active' : ''}`}
+                                    onClick={() => selectTrack(track.id)}
+                                  >
+                                    <span>{track.label}</span>
+                                    {activeTrackIndex === track.id && <span className="cc-check">✓</span>}
+                                  </button>
+                                ))}
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

@@ -51,6 +51,9 @@ export default function App() {
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullBrowser, setIsFullBrowser] = useState(false);
+  const [xtreamStreamFormat, setXtreamStreamFormat] = useState(() => {
+    return localStorage.getItem('streampulse_xtream_format') || 'ts';
+  });
 
   // Reset full browser mode when no channel is selected
   useEffect(() => {
@@ -138,6 +141,39 @@ export default function App() {
     localStorage.setItem('streampulse_favs', JSON.stringify(newFavs));
   };
 
+  const handleStreamFormatChange = (newFormat) => {
+    setXtreamStreamFormat(newFormat);
+    localStorage.setItem('streampulse_xtream_format', newFormat);
+    
+    // Dynamically update the URLs of already loaded channels in state
+    setChannels(prev => prev.map(ch => {
+      if (ch.type === 'live' && ch.streamId) {
+        const creds = playlistInfo?.credentials;
+        if (creds) {
+          return {
+            ...ch,
+            url: `${creds.host}/live/${creds.username}/${creds.password}/${ch.streamId}.${newFormat}`
+          };
+        }
+      }
+      return ch;
+    }));
+
+    // If a channel is currently playing, update its url to reload in the new format
+    setSelectedChannel(prev => {
+      if (prev && prev.type === 'live' && prev.streamId) {
+        const creds = playlistInfo?.credentials;
+        if (creds) {
+          return {
+            ...prev,
+            url: `${creds.host}/live/${creds.username}/${creds.password}/${prev.streamId}.${newFormat}`
+          };
+        }
+      }
+      return prev;
+    });
+  };
+
   const toggleFavorite = (channelId, e) => {
     if (e) e.stopPropagation();
     if (favorites.includes(channelId)) {
@@ -220,7 +256,7 @@ export default function App() {
       const formattedChannels = Array.isArray(streamsJson)
         ? streamsJson.map(s => {
           s.category_name = catMap[s.category_id] || 'Uncategorized';
-          return formatXtreamLiveStream(s, host, username, password);
+          return formatXtreamLiveStream(s, host, username, password, xtreamStreamFormat);
         })
         : [];
 
@@ -488,6 +524,8 @@ export default function App() {
             customLoadValue={customLoadValue}
             handleCustomValueChange={handleCustomValueChange}
             selectValue={selectValue}
+            xtreamStreamFormat={xtreamStreamFormat}
+            onStreamFormatChange={handleStreamFormatChange}
           />
         ) : (
           <div className="dashboard-grid">

@@ -303,7 +303,7 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn, #cc_btn {
+            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn, #cc_btn {{
                 min-width: 34px;
                 max-width: 34px;
                 min-height: 34px;
@@ -311,15 +311,15 @@ class PlayerWidget(QWidget):
                 border-radius: 6px;
                 font-size: 16px;
                 padding: 0px;
-            }
-            #cc_btn {
+            }}
+            #cc_btn {{
                 font-size: 12px;
-            }
-            #cc_btn[active="true"] {
+            }}
+            #cc_btn[active="true"] {{
                 color: #00f0ff;
                 border-color: #00f0ff;
                 background-color: rgba(108, 92, 231, 0.2);
-            }
+            }}
             QSlider::groove:horizontal {{
                 height: 4px;
                 background: #23232e;
@@ -570,10 +570,19 @@ class PlayerWidget(QWidget):
                         elif "mpga" in c_lower or "mp3" in c_lower: codec_str = "MP3"
                         else: codec_str = codec_str.upper()
                         
-                        # Python-vlc track.type can be an int (1=audio, 2=video) or Enum
-                        if track.type == getattr(vlc.TrackType, 'video', 2) or track.type == 2:
+                        # Identify track types: audio=0, video=1, text=2
+                        is_video = False
+                        is_audio = False
+                        try:
+                            is_video = (track.type == vlc.TrackType.video)
+                            is_audio = (track.type == vlc.TrackType.audio)
+                        except AttributeError:
+                            is_video = (track.type == 1)
+                            is_audio = (track.type == 0)
+
+                        if is_video:
                             badges.append((codec_str, "#00f0ff"))
-                        elif track.type == getattr(vlc.TrackType, 'audio', 1) or track.type == 1:
+                        elif is_audio:
                             try:
                                 channels = track.audio.contents.channels
                             except Exception:
@@ -586,19 +595,19 @@ class PlayerWidget(QWidget):
         for text, color in badges:
             lbl = QLabel(text)
             if color == "#ff4757":
-                border_style = "1px solid rgba(255, 71, 87, 0.3)"
-                bg_style = "background: rgba(255, 71, 87, 0.1);"
+                border_style = "1px solid rgba(255, 71, 87, 0.5)"
+                bg_style = "background: rgba(255, 71, 87, 0.15);"
                 text_color = color
             else:
-                border_style = "1px solid rgba(255, 255, 255, 0.08)"
-                bg_style = "background: rgba(255, 255, 255, 0.05);"
-                text_color = "#d1d5db" # Grayish white
+                border_style = "1px solid rgba(255, 255, 255, 0.2)"
+                bg_style = "background: rgba(255, 255, 255, 0.08);"
+                text_color = "#e0e0e2"
                 
             lbl.setStyleSheet(f"""
                 color: {text_color}; 
                 border: {border_style}; 
-                border-radius: 3px; 
-                padding: 1px 4px; 
+                border-radius: 4px; 
+                padding: 1px 6px; 
                 font-weight: bold; 
                 font-size: 9px; 
                 {bg_style}
