@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2, Subtitles } from 'lucide-react';
 
 export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) {
   const videoRef = useRef(null);
@@ -45,6 +45,10 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
       audioCodec: ''
     });
   };
+
+  const [tracks, setTracks] = useState([]);
+  const [activeTrackIndex, setActiveTrackIndex] = useState(-1);
+  const [showTrackMenu, setShowTrackMenu] = useState(false);
 
   const [dismissAudioWarning, setDismissAudioWarning] = useState(false);
   const [codecUnsupported, setCodecUnsupported] = useState(false);
@@ -126,6 +130,9 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     resetBadges();
     setDismissAudioWarning(false);
     setCodecUnsupported(false);
+    setTracks([]);
+    setActiveTrackIndex(-1);
+    setShowTrackMenu(false);
   };
 
   const updateHlsBadges = (level) => {
@@ -591,6 +598,84 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
     }
   };
 
+  // Sync closed captioning/subtitles tracks dynamically
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTracksChange = () => {
+      const textTracks = Array.from(video.textTracks || []);
+      const validTracks = textTracks.filter(
+        track => track.kind === 'subtitles' || track.kind === 'captions'
+      );
+
+      const tracksList = validTracks.map((track, index) => ({
+        id: index,
+        label: track.label || track.language || `c608 #${index + 1}`,
+        language: track.language,
+        kind: track.kind,
+        originalTrack: track,
+        active: track.mode === 'showing'
+      }));
+
+      setTracks(tracksList);
+
+      const activeIdx = tracksList.findIndex(t => t.active);
+      setActiveTrackIndex(activeIdx);
+    };
+
+    const textTracksList = video.textTracks;
+    if (textTracksList) {
+      textTracksList.addEventListener('addtrack', handleTracksChange);
+      textTracksList.addEventListener('removetrack', handleTracksChange);
+      // Run once initially
+      handleTracksChange();
+    }
+
+    return () => {
+      if (textTracksList) {
+        textTracksList.removeEventListener('addtrack', handleTracksChange);
+        textTracksList.removeEventListener('removetrack', handleTracksChange);
+      }
+    };
+  }, [channel, isPlaying]);
+
+  // Click outside to close CC dropdown menu
+  useEffect(() => {
+    if (!showTrackMenu) return;
+
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.cc-control-container')) {
+        setShowTrackMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, [showTrackMenu]);
+
+  const selectTrack = (index) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const textTracks = Array.from(video.textTracks || []).filter(
+      track => track.kind === 'subtitles' || track.kind === 'captions'
+    );
+
+    textTracks.forEach((track, i) => {
+      if (i === index) {
+        track.mode = 'showing';
+      } else {
+        track.mode = 'disabled';
+      }
+    });
+
+    setActiveTrackIndex(index);
+    setShowTrackMenu(false);
+  };
+
   return (
     <div style={{ height: '100%', width: '100%' }}>
       {!channel ? (
@@ -816,6 +901,41 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {tracks.length > 0 && (
+                      <div className="cc-control-container">
+                        <button 
+                          className={`control-btn ${activeTrackIndex !== -1 ? 'active' : ''}`} 
+                          onClick={() => setShowTrackMenu(!showTrackMenu)} 
+                          title="Closed Captions"
+                        >
+                          <Subtitles size={16} />
+                        </button>
+                        
+                        {showTrackMenu && (
+                          <div className="cc-dropdown-menu text-digital">
+                            <div className="cc-dropdown-header">Captions</div>
+                            <button 
+                              className={`cc-dropdown-item ${activeTrackIndex === -1 ? 'active' : ''}`}
+                              onClick={() => selectTrack(-1)}
+                            >
+                              <span>Off</span>
+                              {activeTrackIndex === -1 && <span className="cc-check">✓</span>}
+                            </button>
+                            {tracks.map((track) => (
+                              <button 
+                                key={track.id}
+                                className={`cc-dropdown-item ${activeTrackIndex === track.id ? 'active' : ''}`}
+                                onClick={() => selectTrack(track.id)}
+                              >
+                                <span>{track.label}</span>
+                                {activeTrackIndex === track.id && <span className="cc-check">✓</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {document.pictureInPictureEnabled && (
                       <button className="control-btn" onClick={togglePictureInPicture} title="Picture in Picture">
                         <Shrink size={16} />
@@ -842,6 +962,83 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
       )}
 
       <style>{`
+        .cc-control-container {
+          position: relative;
+          display: inline-block;
+        }
+        .cc-dropdown-menu {
+          position: absolute;
+          bottom: 100%;
+          right: 0;
+          margin-bottom: 8px;
+          background: rgba(15, 15, 20, 0.95);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 8px;
+          min-width: 140px;
+          max-height: 200px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(12px);
+          z-index: 30;
+          animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+          transform-origin: bottom right;
+        }
+        .cc-dropdown-header {
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--text-muted);
+          padding: 4px 8px;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          text-align: left;
+        }
+        .cc-dropdown-item {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 12px;
+          font-weight: 500;
+          padding: 6px 12px;
+          border-radius: 4px;
+          text-align: left;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          transition: all 0.2s ease;
+        }
+        .cc-dropdown-item:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--primary);
+        }
+        .cc-dropdown-item.active {
+          color: var(--primary);
+          background: var(--primary-glow);
+          font-weight: 600;
+        }
+        .cc-check {
+          color: var(--primary);
+          font-weight: 700;
+          font-size: 12px;
+        }
+        
+        @keyframes scaleUp {
+          from {
+            opacity: 0;
+            transform: scale(0.95) translateY(4px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
         .player-wrapper {
           display: flex;
           flex-direction: column;

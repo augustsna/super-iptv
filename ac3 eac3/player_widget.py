@@ -173,6 +173,14 @@ class PlayerWidget(QWidget):
         # Spacer
         self.buttons_layout.addStretch()
 
+        # CC Button
+        self.cc_btn = QPushButton("CC", self.controls_panel)
+        self.cc_btn.setObjectName("cc_btn")
+        self.cc_btn.setToolTip("Closed Captions / Subtitles")
+        self.cc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cc_btn.clicked.connect(self.show_cc_menu)
+        self.buttons_layout.addWidget(self.cc_btn)
+
         # Settings Gear Menu
         self.settings_btn = QPushButton("⚙", self.controls_panel)
         self.settings_btn.setObjectName("settings_btn")
@@ -295,7 +303,7 @@ class PlayerWidget(QWidget):
                 background-color: #00f0ff;
                 color: #000000;
             }}
-            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn {{
+            #play_btn, #stop_btn, #volume_btn, #fullscreen_btn, #full_program_btn, #settings_btn, #cc_btn {
                 min-width: 34px;
                 max-width: 34px;
                 min-height: 34px;
@@ -303,7 +311,15 @@ class PlayerWidget(QWidget):
                 border-radius: 6px;
                 font-size: 16px;
                 padding: 0px;
-            }}
+            }
+            #cc_btn {
+                font-size: 12px;
+            }
+            #cc_btn[active="true"] {
+                color: #00f0ff;
+                border-color: #00f0ff;
+                background-color: rgba(108, 92, 231, 0.2);
+            }
             QSlider::groove:horizontal {{
                 height: 4px;
                 background: #23232e;
@@ -415,6 +431,12 @@ class PlayerWidget(QWidget):
         self.clear_badges()
         self.loading_overlay.hide()
         self.show_controls()
+        
+        # Reset CC button active state
+        if hasattr(self, 'cc_btn'):
+            self.cc_btn.setProperty("active", "false")
+            self.cc_btn.style().unpolish(self.cc_btn)
+            self.cc_btn.style().polish(self.cc_btn)
 
     def set_volume(self, value):
         self.media_player.audio_set_volume(value)
@@ -477,6 +499,9 @@ class PlayerWidget(QWidget):
             if not self.badges_loaded or self.badge_update_count < 30:
                 self.update_meta_badges()
                 self.badge_update_count += 1
+
+            # Update CC button state dynamically
+            self.update_cc_button_state()
         elif state in (vlc.State.Opening, vlc.State.Buffering):
             self.loading_overlay.show()
             self.loading_overlay.setGeometry(0, 0, self.video_frame.width(), self.video_frame.height())
@@ -661,6 +686,84 @@ class PlayerWidget(QWidget):
         self.settings_menu_open = False
         if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
             self.hide_timer.start()
+
+    def show_cc_menu(self):
+        self.hide_timer.stop()
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #121215;
+                color: #ffffff;
+                border: 1px solid #2a2a35;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 24px;
+                border-radius: 4px;
+                color: #e0e0e0;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 11px;
+            }
+            QMenu::item:selected {
+                background-color: #6c5ce7;
+                color: #ffffff;
+            }
+            QMenu::item:checked {
+                font-weight: bold;
+                color: #00f0ff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #2a2a35;
+                margin: 4px 8px;
+            }
+        """)
+
+        header = menu.addAction("Closed Captions")
+        header.setEnabled(False)
+        menu.addSeparator()
+
+        tracks = self.media_player.video_get_spu_description()
+        active_track = self.media_player.video_get_spu()
+
+        off_action = menu.addAction("Off")
+        off_action.setCheckable(True)
+        off_action.setChecked(active_track == -1)
+        off_action.triggered.connect(lambda: self.select_cc_track(-1))
+
+        if tracks:
+            for track_id, track_name_bytes in tracks:
+                if track_id == -1:
+                    continue
+                track_name = track_name_bytes.decode('utf-8', errors='ignore')
+                action = menu.addAction(track_name)
+                action.setCheckable(True)
+                action.setChecked(track_id == active_track)
+                action.triggered.connect(lambda checked, t_id=track_id: self.select_cc_track(t_id))
+
+        button_pos = self.cc_btn.mapToGlobal(QPoint(0, 0))
+        menu_size = menu.sizeHint()
+        menu_x = button_pos.x() + (self.cc_btn.width() - menu_size.width()) // 2
+        menu_y = button_pos.y() - menu_size.height() - 6
+
+        menu.exec(QPoint(menu_x, menu_y))
+
+        if self.media_player.get_state() == vlc.State.Playing and self.fullscreen_mode:
+            self.hide_timer.start()
+
+    def select_cc_track(self, track_id):
+        logging.info(f"VLC Player: Select closed caption track ID={track_id}")
+        self.media_player.video_set_spu(track_id)
+        self.update_cc_button_state()
+
+    def update_cc_button_state(self):
+        active_track = self.media_player.video_get_spu()
+        is_active = (active_track != -1)
+        self.cc_btn.setProperty("active", "true" if is_active else "false")
+        self.cc_btn.style().unpolish(self.cc_btn)
+        self.cc_btn.style().polish(self.cc_btn)
 
     def select_audio_track(self, track_id):
         logging.info(f"VLC Player: Select audio track ID={track_id}")
