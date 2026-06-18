@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2, Subtitles, Settings, Square } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, BarChart2, Tv, Shrink, Maximize2, Minimize2, Subtitles, Settings, Square, FolderOpen } from 'lucide-react';
 
 export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const mpegtsRef = useRef(null);
+  const subtitleInputRef = useRef(null);
+  const localSubtitleUrlRef = useRef(null);
+  const localSubtitleTrackRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(() => {
@@ -49,6 +52,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
   const [tracks, setTracks] = useState([]);
   const [activeTrackIndex, setActiveTrackIndex] = useState(-1);
   const [showTrackMenu, setShowTrackMenu] = useState(false);
+  const [localSubtitleName, setLocalSubtitleName] = useState('');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [activeAudioTrackIndex, setActiveAudioTrackIndex] = useState(-1);
@@ -115,6 +119,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
 
   const destroyPlayer = () => {
     isDestroyingRef.current = true;
+    clearLocalSubtitle();
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -441,6 +446,80 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
 
     const activeIdx = tracksList.findIndex(t => t.active);
     setActiveTrackIndex(activeIdx);
+  };
+
+  const clearLocalSubtitle = () => {
+    if (localSubtitleTrackRef.current?.parentNode) {
+      localSubtitleTrackRef.current.parentNode.removeChild(localSubtitleTrackRef.current);
+    }
+    localSubtitleTrackRef.current = null;
+
+    if (localSubtitleUrlRef.current) {
+      URL.revokeObjectURL(localSubtitleUrlRef.current);
+      localSubtitleUrlRef.current = null;
+    }
+
+    setLocalSubtitleName('');
+    syncTextTracks();
+  };
+
+  const convertSrtToVtt = (text) => {
+    const normalized = text.replace(/^\uFEFF/, '').replace(/\r+/g, '');
+    return `WEBVTT\n\n${normalized
+      .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2},\d{3})/gm, '')
+      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`;
+  };
+
+  const handleLocalSubtitleChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !videoRef.current) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension !== 'vtt' && extension !== 'srt') {
+      setErrorMsg('Subtitle file must be .vtt or .srt');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const vttText = extension === 'srt' ? convertSrtToVtt(text) : text;
+      const blob = new Blob([vttText], { type: 'text/vtt' });
+      const url = URL.createObjectURL(blob);
+      const trackEl = document.createElement('track');
+
+      clearLocalSubtitle();
+
+      trackEl.kind = 'subtitles';
+      trackEl.label = `Local: ${file.name}`;
+      trackEl.srclang = 'local';
+      trackEl.src = url;
+      trackEl.default = true;
+      trackEl.addEventListener('load', () => {
+        Array.from(videoRef.current?.textTracks || []).forEach(track => {
+          track.mode = track === trackEl.track ? 'showing' : 'disabled';
+        });
+        syncTextTracks();
+      }, { once: true });
+
+      localSubtitleUrlRef.current = url;
+      localSubtitleTrackRef.current = trackEl;
+      videoRef.current.appendChild(trackEl);
+      setLocalSubtitleName(file.name);
+      setErrorMsg('');
+
+      setTimeout(() => {
+        if (trackEl.track) {
+          Array.from(videoRef.current?.textTracks || []).forEach(track => {
+            track.mode = track === trackEl.track ? 'showing' : 'disabled';
+          });
+          syncTextTracks();
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Failed to load local subtitle:', err);
+      setErrorMsg('Could not load subtitle file');
+    }
   };
 
   const syncAudioTracks = () => {
@@ -971,6 +1050,13 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                     {isPlaying && (
                       <>
                         <div className="cc-control-container">
+                          <input
+                            ref={subtitleInputRef}
+                            type="file"
+                            accept=".vtt,.srt,text/vtt,application/x-subrip"
+                            onChange={handleLocalSubtitleChange}
+                            style={{ display: 'none' }}
+                          />
                           <button 
                             className={`control-btn ${activeTrackIndex !== -1 ? 'active' : ''}`} 
                             onClick={() => {
@@ -985,6 +1071,20 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
                           {showTrackMenu && (
                             <div className="cc-dropdown-menu text-digital">
                               <div className="cc-dropdown-header">Captions</div>
+                              <button
+                                className="cc-dropdown-item"
+                                onClick={() => subtitleInputRef.current?.click()}
+                              >
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                  <FolderOpen size={14} />
+                                  Load local CC
+                                </span>
+                              </button>
+                              {localSubtitleName && (
+                                <div className="cc-dropdown-note">
+                                  {localSubtitleName}
+                                </div>
+                              )}
                               {tracks.length === 0 ? (
                                 <div className="cc-dropdown-item disabled" style={{ opacity: 0.5, cursor: 'default', pointerEvents: 'none' }}>
                                   None Available
@@ -1178,7 +1278,7 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
           border: 1px solid var(--border-color);
           border-radius: 8px;
           padding: 8px;
-          min-width: 140px;
+          min-width: 190px;
           max-height: 200px;
           overflow-y: auto;
           display: flex;
@@ -1224,6 +1324,15 @@ export default function Player({ channel, isFullBrowser, onToggleFullBrowser }) 
           color: var(--primary);
           background: var(--primary-glow);
           font-weight: 600;
+        }
+        .cc-dropdown-note {
+          color: var(--text-muted);
+          font-size: 11px;
+          padding: 2px 12px 6px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
         .cc-check {
           color: var(--primary);
